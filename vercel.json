@@ -1,5 +1,5 @@
 {
-  "installCommand": "npm install -g pnpm@10.11.0 && pnpm install --no-frozen-lockfile",
+  "installCommand": "npm install -g pnpm@10.26.1 && pnpm install --frozen-lockfile",
   "buildCommand": "pnpm run typecheck:libs && pnpm --filter @workspace/nakudin run build",
   "outputDirectory": "artifacts/nakudin/dist/public",
   "framework": null,
