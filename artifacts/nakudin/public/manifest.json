@@ -1,0 +1,32 @@
+{
+  "name": "Nakudin Marketplace",
+  "short_name": "Nakudin",
+  "description": "Verified online marketplace where every shop works like a social profile",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0A0F",
+  "theme_color": "#00D9FF",
+  "orientation": "portrait-primary",
+  "categories": ["shopping", "business"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Explore Shops",
+      "url": "/explore",
+      "description": "Browse all verified shops"
+    },
+    {
+      "name": "My Dashboard",
+      "url": "/dashboard",
+      "description": "Manage your shop"
+    }
+  ]
+}

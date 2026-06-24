@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
+import { NakudinLogo } from "@/components/NakudinLogo";
 
 export default function Login() {
   const { signIn, signInGoogle } = useAuth();
@@ -42,7 +43,7 @@ export default function Login() {
   return (
     <div className="min-h-[100dvh] flex flex-col justify-center px-6 py-12" data-testid="page-login">
       <div className="mb-10 text-center">
-        <h1 className="text-3xl font-extrabold text-primary tracking-tight">Nakudin</h1>
+        <NakudinLogo size="lg" />
         <p className="text-muted-foreground mt-2 text-sm">Sign in to your account</p>
       </div>
 

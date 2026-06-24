@@ -7,6 +7,7 @@ import searchRouter from "./search";
 import reportsRouter from "./reports";
 import cloudinaryRouter from "./cloudinary";
 import adminRouter from "./admin";
+import paymentsRouter from "./payments";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(searchRouter);
 router.use(reportsRouter);
 router.use(cloudinaryRouter);
 router.use(adminRouter);
+router.use(paymentsRouter);
 
 export default router;

@@ -45,7 +45,7 @@ router.post("/shops", async (req, res) => {
     if (existing.length) return res.status(409).json({ error: "Shop already exists" });
 
     const trialEndsAt = new Date();
-    trialEndsAt.setDate(trialEndsAt.getDate() + 90);
+    trialEndsAt.setDate(trialEndsAt.getDate() + 60);
 
     const [shop] = await db.insert(shopsTable).values({
       id: userId,
