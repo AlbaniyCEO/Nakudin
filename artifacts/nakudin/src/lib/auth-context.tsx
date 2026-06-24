@@ -1,9 +1,9 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import {
   initializeApp,
   getApp,
   getApps,
-} from "firebase/app";
+} from 'firebase/app';
 import {
   getAuth,
   onAuthStateChanged,
@@ -13,7 +13,8 @@ import {
   GoogleAuthProvider,
   signOut,
   type User,
-} from "firebase/auth";
+  type Auth,
+} from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -24,9 +25,16 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const googleProvider = new GoogleAuthProvider();
+let auth: Auth | null = null;
+let googleProvider: GoogleAuthProvider | null = null;
+
+try {
+  const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  googleProvider = new GoogleAuthProvider();
+} catch (e) {
+  console.error('[Firebase] Initialization failed — check VITE_FIREBASE_* env vars:', e);
+}
 
 interface AuthContextType {
   user: User | null;
@@ -44,6 +52,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
       setLoading(false);
@@ -52,18 +64,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    if (!auth) throw new Error('Firebase not configured');
     await signInWithEmailAndPassword(auth, email, password);
   };
 
   const signUp = async (email: string, password: string) => {
+    if (!auth) throw new Error('Firebase not configured');
     await createUserWithEmailAndPassword(auth, email, password);
   };
 
   const signInGoogle = async () => {
+    if (!auth || !googleProvider) throw new Error('Firebase not configured');
     await signInWithPopup(auth, googleProvider);
   };
 
   const logout = async () => {
+    if (!auth) throw new Error('Firebase not configured');
     await signOut(auth);
   };
 
@@ -77,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 }
