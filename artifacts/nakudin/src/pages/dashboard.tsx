@@ -218,7 +218,7 @@ export default function Dashboard() {
       </div>
 
       <div className="space-y-2">
-        {products?.products.map(p => {
+        {products?.products?.map(p => {
           const stock = p.stockQuantity ?? 1;
           return (
             <div key={p.id} className={`bg-card border rounded-xl flex items-center gap-3 p-3 ${stock === 0 ? "border-destructive/30 opacity-80" : stock <= 3 ? "border-amber-500/30" : "border-card-border"}`}>
@@ -270,7 +270,7 @@ export default function Dashboard() {
             </div>
           );
         })}
-        {!products?.products.length && (
+        {!products?.products?.length && (
           <div className="py-10 text-center text-muted-foreground">
             <Package size={32} className="mx-auto mb-3 opacity-30" />
             <p className="text-sm">No products yet. Add your first product!</p>
