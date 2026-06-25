@@ -203,10 +203,10 @@ export default function ShopProfile() {
 
         {activeTab === "Products" && (
           <div className="grid grid-cols-2 gap-3">
-            {products?.products.map(p => (
+            {products?.products?.map(p => (
               <ProductCard key={p.id} product={{ ...p, shopName: shop.businessName, shopVerified: shop.verified, shopLogoUrl: shop.logoUrl ?? null, shopWhatsapp: shop.whatsappNumber ?? null, distanceKm: null, isFollowed: false, trendScore: null }} />
             ))}
-            {!products?.products.length && (
+            {!products?.products?.length && (
               <div className="col-span-2 py-12 text-center text-muted-foreground">
                 <Package size={36} className="mx-auto mb-3 opacity-30" />
                 <p className="text-sm">No products listed yet.</p>
