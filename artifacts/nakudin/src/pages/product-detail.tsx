@@ -192,7 +192,7 @@ export default function ProductDetail() {
             </div>
           </div>
           <p className={`text-2xl font-extrabold mt-1 ${isOOS ? "text-muted-foreground" : "text-secondary"}`} data-testid="text-product-price">
-            ₦{product.price.toLocaleString("en-NG")}
+            ₦{(product?.price ?? 0).toLocaleString("en-NG")}
           </p>
           <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
             <span>{product.likeCount} likes</span>
@@ -222,7 +222,7 @@ export default function ProductDetail() {
                   <span className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors truncate">{shop.businessName}</span>
                   {shop.verified && <BadgeCheck size={14} className="text-[#1D9BF0] fill-[#1D9BF0] flex-shrink-0" strokeWidth={0} />}
                 </div>
-                <p className="text-xs text-muted-foreground">{shop.followerCount.toLocaleString()} followers</p>
+                <p className="text-xs text-muted-foreground">{(shop?.followerCount ?? 0).toLocaleString()} followers</p>
               </div>
               <Button size="sm" variant={isFollowed ? "outline" : "default"} onClick={e => { e.preventDefault(); handleFollow(); }}>
                 {isFollowed ? "Following" : "Follow"}
