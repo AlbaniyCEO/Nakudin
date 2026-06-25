@@ -1,9 +1,10 @@
 {
   "installCommand": "npm install -g pnpm@10.26.1 && pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm run typecheck:libs && pnpm --filter @workspace/nakudin run build",
+  "buildCommand": "pnpm run typecheck:libs && pnpm --filter @workspace/nakudin run build && pnpm --filter @workspace/api-server run build",
   "outputDirectory": "artifacts/nakudin/dist/public",
   "framework": null,
   "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/index" },
     {
       "source": "/((?!assets|favicon.svg|manifest.json|robots.txt|sw.js).*)",
       "destination": "/index.html"
