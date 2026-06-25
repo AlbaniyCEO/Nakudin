@@ -13,7 +13,7 @@ router.get("/feed", async (req, res) => {
     const lng = req.query.lng ? Number(req.query.lng) : null;
     const userId = (req as any).userId as string | undefined;
 
-    let query = db
+    const rows = await db
       .select({
         product: productsTable,
         shop: {
@@ -40,11 +40,9 @@ router.get("/feed", async (req, res) => {
       .orderBy(desc(productsTable.trendScore), desc(productsTable.createdAt))
       .limit(limit + 1);
 
-    const rows = await query;
     const hasMore = rows.length > limit;
     const items = hasMore ? rows.slice(0, limit) : rows;
 
-    // Get liked products for current user
     const likedProductIds = new Set<string>();
     const followedShopIds = new Set<string>();
     if (userId) {
@@ -89,11 +87,17 @@ router.get("/feed", async (req, res) => {
         isLiked: likedProductIds.has(product.id),
         isFollowed: followedShopIds.has(shop.id),
         trendScore: product.trendScore,
+        stockQuantity: product.stockQuantity,
         createdAt: product.createdAt.toISOString(),
       };
     });
 
-    res.json({ products, nextCursor: hasMore ? items[items.length - 1].product.id : null });
+    // Sink out-of-stock products to the end (preserve relative trendScore order within each group)
+    const inStock = products.filter(p => p.stockQuantity > 0);
+    const outOfStock = products.filter(p => p.stockQuantity === 0);
+    const sorted = [...inStock, ...outOfStock];
+
+    res.json({ products: sorted, nextCursor: hasMore ? items[items.length - 1].product.id : null });
   } catch (err) {
     req.log.error({ err }, "Feed error");
     res.status(500).json({ error: "Internal server error" });
