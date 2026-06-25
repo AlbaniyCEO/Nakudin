@@ -127,7 +127,12 @@ async function buildAll() {
     platform: "node",
     bundle: true,
     format: "esm",
-    outfile: path.resolve(apiDir, "index.mjs"),
+    // outdir (not outfile) is required when esbuildPluginPino injects extra
+    // worker entry points. entryNames maps the main entry to "index" so the
+    // primary output is api/index.mjs; pino workers land alongside it.
+    outdir: apiDir,
+    entryNames: "index",
+    outExtension: { ".js": ".mjs" },
     logLevel: "info",
     external: EXTERNAL,
     sourcemap: false,
