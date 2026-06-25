@@ -1,5 +1,5 @@
 import { type Request, type Response, type NextFunction } from "express";
-  import { ZodError } from "zod/v4";
+  import { ZodError } from "zod";
 
   export interface HttpError extends Error {
     status?: number;
