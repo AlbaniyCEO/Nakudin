@@ -49,6 +49,7 @@ export const GetFeedResponse = zod.object({
   "isLiked": zod.boolean().optional(),
   "isFollowed": zod.boolean().optional(),
   "trendScore": zod.number().nullish(),
+  "stockQuantity": zod.number().nullish(),
   "createdAt": zod.string()
 })),
   "nextCursor": zod.string().nullable()
@@ -84,6 +85,7 @@ export const ListProductsResponse = zod.object({
   "viewCount": zod.number(),
   "whatsappClickCount": zod.number(),
   "trendScore": zod.number().nullish(),
+  "stockQuantity": zod.number().optional(),
   "status": zod.enum(['active', 'hidden', 'deleted']),
   "isLiked": zod.boolean().optional(),
   "createdAt": zod.string()
@@ -111,7 +113,8 @@ export const CreateProductBody = zod.object({
   "locationCity": zod.string().optional(),
   "locationState": zod.string().optional(),
   "locationLat": zod.number().optional(),
-  "locationLng": zod.number().optional()
+  "locationLng": zod.number().optional(),
+  "stockQuantity": zod.number().int().min(0).optional()
 })
 
 
@@ -138,6 +141,7 @@ export const GetProductResponse = zod.object({
   "viewCount": zod.number(),
   "whatsappClickCount": zod.number(),
   "trendScore": zod.number().nullish(),
+  "stockQuantity": zod.number().optional(),
   "status": zod.enum(['active', 'hidden', 'deleted']),
   "isLiked": zod.boolean().optional(),
   "createdAt": zod.string()
@@ -166,7 +170,8 @@ export const UpdateProductBody = zod.object({
   "category": zod.string().optional(),
   "status": zod.enum(['active', 'hidden']).optional(),
   "locationCity": zod.string().optional(),
-  "locationState": zod.string().optional()
+  "locationState": zod.string().optional(),
+  "stockQuantity": zod.number().int().min(0).optional()
 })
 
 export const UpdateProductResponse = zod.object({
@@ -185,6 +190,7 @@ export const UpdateProductResponse = zod.object({
   "viewCount": zod.number(),
   "whatsappClickCount": zod.number(),
   "trendScore": zod.number().nullish(),
+  "stockQuantity": zod.number().optional(),
   "status": zod.enum(['active', 'hidden', 'deleted']),
   "isLiked": zod.boolean().optional(),
   "createdAt": zod.string()
