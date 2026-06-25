@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -9,11 +9,11 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { ProductCard } from "@/components/ProductCard";
 import { Button } from "@/components/ui/button";
-import { BadgeCheck, Bell, BellOff, ChevronLeft, Heart, MapPin, MessageCircle, Send, Share2, Users } from "lucide-react";
+import { BadgeCheck, Bell, BellOff, ChevronLeft, Heart, MapPin, MessageCircle, Send, Share2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
 
-const API_BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+const API_BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
 function getDeviceId() {
   let id = localStorage.getItem("nakudin_device_id");
@@ -21,26 +21,25 @@ function getDeviceId() {
   return id;
 }
 
-async function fetchStockWatch(productId: string, token: string): Promise<boolean> {
+async function fetchStockWatchStatus(productId: string, token: string): Promise<boolean> {
   try {
     const r = await fetch(`${API_BASE}/api/products/${productId}/stock-watch`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!r.ok) return false;
-    const d = await r.json();
-    return d.watching;
+    return Boolean((await r.json()).watching);
   } catch { return false; }
 }
 
 async function toggleStockWatch(productId: string, token: string, watching: boolean): Promise<boolean> {
-  const method = watching ? "DELETE" : "POST";
-  const r = await fetch(`${API_BASE}/api/products/${productId}/stock-watch`, {
-    method,
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!r.ok) return watching;
-  const d = await r.json();
-  return d.watching;
+  try {
+    const r = await fetch(`${API_BASE}/api/products/${productId}/stock-watch`, {
+      method: watching ? "DELETE" : "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!r.ok) return watching;
+    return Boolean((await r.json()).watching);
+  } catch { return watching; }
 }
 
 export default function ProductDetail() {
@@ -70,10 +69,16 @@ export default function ProductDetail() {
   const isLiked = liked !== null ? liked : (product?.isLiked ?? false);
   const isOOS = product?.stockQuantity === 0;
 
-  // Load watch state when product is loaded and user is available
-  if (product && user && watching === null) {
-    user.getIdToken().then(token => fetchStockWatch(productId, token).then(setWatching));
-  }
+  // Load watch state once product and user are both available — must be in useEffect, not render body
+  useEffect(() => {
+    if (!product || !user || watching !== null) return;
+    let cancelled = false;
+    user.getIdToken()
+      .then(token => fetchStockWatchStatus(productId, token))
+      .then(v => { if (!cancelled) setWatching(v); })
+      .catch(() => { if (!cancelled) setWatching(false); });
+    return () => { cancelled = true; };
+  }, [product?.id, user?.uid, productId]);
 
   const handleLike = () => {
     if (!user) { navigate("/login"); return; }
@@ -146,14 +151,12 @@ export default function ProductDetail() {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} data-testid="page-product-detail">
-      {/* Back */}
       <div className="flex items-center px-4 pt-4 pb-2">
         <button onClick={() => history.back()} className="p-1 -ml-1 text-muted-foreground hover:text-foreground">
           <ChevronLeft size={22} />
         </button>
       </div>
 
-      {/* Image carousel */}
       <div className="relative aspect-square bg-muted overflow-hidden">
         {images.length > 0 ? (
           <img src={images[imageIdx]} alt={product.title} className={`w-full h-full object-cover ${isOOS ? "grayscale-[20%]" : ""}`} />
@@ -161,14 +164,10 @@ export default function ProductDetail() {
           <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">No image</div>
         )}
         {isOOS && (
-          <div className="absolute top-3 left-3 bg-black/70 text-white text-xs font-bold px-3 py-1 rounded-full">
-            Sold Out
-          </div>
+          <div className="absolute top-3 left-3 bg-black/70 text-white text-xs font-bold px-3 py-1 rounded-full">Sold Out</div>
         )}
         {!isOOS && product.stockQuantity != null && product.stockQuantity <= 3 && (
-          <div className="absolute top-3 left-3 bg-amber-500/90 text-white text-xs font-bold px-3 py-1 rounded-full">
-            Only {product.stockQuantity} left
-          </div>
+          <div className="absolute top-3 left-3 bg-amber-500/90 text-white text-xs font-bold px-3 py-1 rounded-full">Only {product.stockQuantity} left</div>
         )}
         {images.length > 1 && (
           <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
@@ -180,18 +179,14 @@ export default function ProductDetail() {
       </div>
 
       <div className="px-4 pb-24">
-        {/* Title & price */}
         <div className="py-4 border-b border-border">
           <div className="flex items-start justify-between gap-3">
             <h1 className="text-xl font-bold text-foreground flex-1" data-testid="text-product-title">{product.title}</h1>
             <div className="flex gap-2">
               <button onClick={handleShare} className="p-1.5 text-muted-foreground hover:text-foreground"><Share2 size={18} /></button>
-              <motion.button
-                whileTap={{ scale: 1.3 }}
-                onClick={handleLike}
+              <motion.button whileTap={{ scale: 1.3 }} onClick={handleLike}
                 className={`p-1.5 transition-colors ${isLiked ? "text-red-500" : "text-muted-foreground hover:text-foreground"}`}
-                data-testid="button-like"
-              >
+                data-testid="button-like">
                 <Heart size={20} fill={isLiked ? "currentColor" : "none"} />
               </motion.button>
             </div>
@@ -212,7 +207,6 @@ export default function ProductDetail() {
           )}
         </div>
 
-        {/* Shop row */}
         {shop && (
           <Link href={`/shops/${shop.id}`}>
             <div className="flex items-center gap-3 py-4 border-b border-border group">
@@ -237,7 +231,6 @@ export default function ProductDetail() {
           </Link>
         )}
 
-        {/* Description */}
         {product.description && (
           <div className="py-4 border-b border-border">
             <h3 className="text-sm font-semibold text-foreground mb-2">Description</h3>
@@ -245,52 +238,31 @@ export default function ProductDetail() {
           </div>
         )}
 
-        {/* WhatsApp CTA or Notify Me */}
         <div className="py-4 border-b border-border space-y-2">
           {!isOOS && shop?.whatsappNumber && (
-            <Button
-              className="w-full bg-[#25D366] hover:bg-[#1ebe5a] text-white font-semibold"
-              onClick={handleWhatsApp}
-              data-testid="button-whatsapp"
-            >
+            <Button className="w-full bg-[#25D366] hover:bg-[#1ebe5a] text-white font-semibold" onClick={handleWhatsApp} data-testid="button-whatsapp">
               Contact on WhatsApp
             </Button>
           )}
           {isOOS && (
-            <Button
-              variant={watching ? "outline" : "default"}
-              className="w-full"
-              onClick={handleWatch}
-              disabled={watchLoading}
-              data-testid="button-notify"
-            >
-              {watching ? (
-                <><BellOff size={15} className="mr-2" />Stop Notifications</>
-              ) : (
-                <><Bell size={15} className="mr-2" />Notify me when back in stock</>
-              )}
-            </Button>
-          )}
-          {isOOS && (
-            <p className="text-center text-xs text-muted-foreground">This item is currently sold out.</p>
+            <>
+              <Button variant={watching ? "outline" : "default"} className="w-full" onClick={handleWatch} disabled={watchLoading} data-testid="button-notify">
+                {watching ? <><BellOff size={15} className="mr-2" />Stop Notifications</> : <><Bell size={15} className="mr-2" />Notify me when back in stock</>}
+              </Button>
+              <p className="text-center text-xs text-muted-foreground">This item is currently sold out.</p>
+            </>
           )}
         </div>
 
-        {/* Comments */}
         <div className="pt-4">
           <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-            <MessageCircle size={15} />
-            Comments ({comments?.length ?? 0})
+            <MessageCircle size={15} /> Comments ({comments?.length ?? 0})
           </h3>
           <form onSubmit={handleComment} className="flex gap-2 mb-4">
-            <input
-              value={comment}
-              onChange={e => setComment(e.target.value)}
-              placeholder={user ? "Add a comment..." : "Sign in to comment"}
-              disabled={!user}
+            <input value={comment} onChange={e => setComment(e.target.value)}
+              placeholder={user ? "Add a comment..." : "Sign in to comment"} disabled={!user}
               className="flex-1 bg-background border border-input rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-              data-testid="input-comment"
-            />
+              data-testid="input-comment" />
             <Button type="submit" size="icon" disabled={!user || !comment.trim() || createComment.isPending} className="flex-shrink-0">
               <Send size={15} />
             </Button>
@@ -309,13 +281,10 @@ export default function ProductDetail() {
                 </div>
               </div>
             ))}
-            {!comments?.length && (
-              <p className="text-center text-xs text-muted-foreground py-4">No comments yet. Be the first!</p>
-            )}
+            {!comments?.length && <p className="text-center text-xs text-muted-foreground py-4">No comments yet. Be the first!</p>}
           </div>
         </div>
 
-        {/* Related */}
         {(related?.length ?? 0) > 0 && (
           <div className="mt-6">
             <h3 className="text-sm font-semibold text-foreground mb-3">More from this shop</h3>
