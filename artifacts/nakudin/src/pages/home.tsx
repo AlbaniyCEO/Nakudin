@@ -33,10 +33,10 @@ export default function Home() {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-4">
-            {data?.products.map((product) => (
+            {data?.products?.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
-            {!data?.products.length && (
+            {!data?.products?.length && (
               <p className="col-span-2 text-center text-muted-foreground py-16 text-sm">
                 {t("noProducts")}
               </p>
