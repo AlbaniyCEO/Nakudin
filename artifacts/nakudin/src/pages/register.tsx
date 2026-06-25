@@ -7,7 +7,21 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { NakudinLogo } from "@/components/NakudinLogo";
 
-export default function Register() {
+function firebaseError(err: any): string {
+    const code = err?.code ?? "";
+    if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found")
+      return "Incorrect email or password.";
+    if (code === "auth/email-already-in-use") return "An account with this email already exists. Try signing in.";
+    if (code === "auth/invalid-email") return "Please enter a valid email address.";
+    if (code === "auth/weak-password") return "Password must be at least 6 characters.";
+    if (code === "auth/too-many-requests") return "Too many attempts. Please wait and try again.";
+    if (code === "auth/network-request-failed") return "Network error. Check your connection and try again.";
+    if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") return "";
+    if (code === "auth/popup-blocked") return "Pop-ups are blocked. Please allow pop-ups and try again.";
+    return "Something went wrong. Please try again.";
+  }
+
+  export default function Register() {
   const { signUp, signInGoogle } = useAuth();
   const [, navigate] = useLocation();
   const [email, setEmail] = useState("");
@@ -24,7 +38,7 @@ export default function Register() {
       await signUp(email, password);
       navigate("/create-shop");
     } catch (err: any) {
-      setError(err.message || "Failed to create account");
+      const msg = firebaseError(err); if (msg) setError(msg);
     } finally {
       setLoading(false);
     }
@@ -36,7 +50,7 @@ export default function Register() {
       await signInGoogle();
       navigate("/create-shop");
     } catch (err: any) {
-      setError(err.message || "Google sign-in failed");
+      const msg2 = firebaseError(err); if (msg2) setError(msg2);
     } finally {
       setLoading(false);
     }
