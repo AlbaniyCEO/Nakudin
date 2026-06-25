@@ -89,7 +89,7 @@ export default function ProductForm() {
       queryClient.invalidateQueries({ queryKey: getListProductsQueryKey({ shopId: shop?.id }) });
       navigate("/dashboard");
     } catch (err: any) {
-      setError(err.message || "Failed to save product");
+      setError(err?.response?.data?.message || err?.message?.replace(/Firebase:.*/, "") || "Failed to save product. Please try again.");
     }
   };
 
