@@ -2,6 +2,7 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import cors from "cors";
 import router from "./routes";
 import { authMiddleware } from "./middlewares/auth";
+import { globalErrorHandler } from "./middlewares/error-handler";
 
 // Minimal logger that matches the pino interface used in route handlers.
 // Vercel captures all console output as function logs automatically.
@@ -38,5 +39,8 @@ app.use(
 app.use(express.urlencoded({ extended: true }));
 app.use(authMiddleware);
 app.use("/api", router);
+
+// Must be last — catches errors thrown/passed from any route handler
+app.use(globalErrorHandler);
 
 export default app;
