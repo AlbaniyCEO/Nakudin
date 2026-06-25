@@ -101,7 +101,7 @@ export default function AdminPanel() {
           <div className="bg-card border border-card-border rounded-xl p-4">
             <h3 className="text-sm font-semibold text-foreground mb-3">Subscription Breakdown</h3>
             <div className="space-y-2">
-              {Object.entries(stats.subscriptionBreakdown).map(([status, count]) => (
+              {Object.entries(stats?.subscriptionBreakdown ?? {}).map(([status, count]) => (
                 <div key={status} className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground capitalize">{status}</span>
                   <span className="text-sm font-semibold text-foreground">{count}</span>
@@ -125,7 +125,7 @@ export default function AdminPanel() {
 
       {activeTab === "Shops" && (
         <div className="space-y-2">
-          {shopData?.shops.map(s => (
+          {shopData?.shops?.map(s => (
             <div key={s.id} className="bg-card border border-card-border rounded-xl p-3">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-lg bg-muted overflow-hidden flex-shrink-0">
@@ -163,14 +163,14 @@ export default function AdminPanel() {
 
       {activeTab === "Products" && (
         <div className="space-y-2">
-          {productData?.products.map(p => (
+          {productData?.products?.map(p => (
             <div key={p.id} className="bg-card border border-card-border rounded-xl p-3 flex items-center gap-3">
               <div className="w-12 h-12 rounded-lg bg-muted overflow-hidden flex-shrink-0">
                 {p.images?.[0] ? <img src={p.images[0]} className="w-full h-full object-cover" alt={p.title} /> : null}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">{p.title}</p>
-                <p className="text-xs text-muted-foreground">₦{p.price.toLocaleString()} · {p.viewCount} views · {p.status}</p>
+                <p className="text-xs text-muted-foreground">₦{(p?.price ?? 0).toLocaleString()} · {p.viewCount} views · {p.status}</p>
               </div>
             </div>
           ))}
