@@ -170,7 +170,7 @@ export default function ShopProfile() {
         {/* Stats */}
         <div className="flex items-center gap-6 py-3 border-y border-border mb-4">
           <div className="text-center">
-            <p className="text-base font-bold text-foreground">{shop.followerCount.toLocaleString()}</p>
+            <p className="text-base font-bold text-foreground">{(shop?.followerCount ?? 0).toLocaleString()}</p>
             <p className="text-xs text-muted-foreground">Followers</p>
           </div>
           <div className="text-center">
