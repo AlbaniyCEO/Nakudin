@@ -36,9 +36,14 @@ const queryClient = new QueryClient({
 function AuthTokenSetter() {
   useEffect(() => {
     setAuthTokenGetter(async () => {
+      if (!auth) return null;
       const user = auth.currentUser;
       if (!user) return null;
-      return user.getIdToken();
+      try {
+        return await user.getIdToken();
+      } catch {
+        return null;
+      }
     });
     return () => setAuthTokenGetter(null);
   }, []);
