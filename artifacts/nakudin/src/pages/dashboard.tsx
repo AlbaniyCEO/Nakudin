@@ -198,10 +198,10 @@ export default function Dashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 mb-6">
-        <StatCard icon={Eye} label="Total Views" value={(analytics?.totalViews ?? shop.totalViews).toLocaleString()} color="bg-primary" />
-        <StatCard icon={Heart} label="Total Likes" value={(analytics?.totalLikes ?? shop.totalLikes).toLocaleString()} color="bg-red-500" />
-        <StatCard icon={MessageCircle} label="WhatsApp Clicks" value={(analytics?.totalWhatsappClicks ?? shop.totalWhatsappClicks).toLocaleString()} color="bg-[#25D366]" />
-        <StatCard icon={Users} label="Followers" value={(analytics?.followerCount ?? shop.followerCount).toLocaleString()} color="bg-[#1D9BF0]" />
+        <StatCard icon={Eye} label="Total Views" value={(analytics?.totalViews ?? shop?.totalViews ?? 0).toLocaleString()} color="bg-primary" />
+        <StatCard icon={Heart} label="Total Likes" value={(analytics?.totalLikes ?? shop?.totalLikes ?? 0).toLocaleString()} color="bg-red-500" />
+        <StatCard icon={MessageCircle} label="WhatsApp Clicks" value={(analytics?.totalWhatsappClicks ?? shop?.totalWhatsappClicks ?? 0).toLocaleString()} color="bg-[#25D366]" />
+        <StatCard icon={Users} label="Followers" value={(analytics?.followerCount ?? shop?.followerCount ?? 0).toLocaleString()} color="bg-[#1D9BF0]" />
       </div>
 
       {/* Products */}
@@ -231,7 +231,7 @@ export default function Dashboard() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate" data-testid={`text-product-${p.id}`}>{p.title}</p>
-                <p className="text-sm font-bold text-secondary">₦{p.price.toLocaleString("en-NG")}</p>
+                <p className="text-sm font-bold text-secondary">₦{(p?.price ?? 0).toLocaleString("en-NG")}</p>
                 <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground flex-wrap">
                   <span>{p.viewCount} views</span>
                   <span>{p.likeCount} likes</span>
