@@ -9,14 +9,38 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { ProductCard } from "@/components/ProductCard";
 import { Button } from "@/components/ui/button";
-import { BadgeCheck, ChevronLeft, Heart, MapPin, MessageCircle, Send, Share2, Users } from "lucide-react";
+import { BadgeCheck, Bell, BellOff, ChevronLeft, Heart, MapPin, MessageCircle, Send, Share2, Users } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
+
+const API_BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
 function getDeviceId() {
   let id = localStorage.getItem("nakudin_device_id");
   if (!id) { id = crypto.randomUUID(); localStorage.setItem("nakudin_device_id", id); }
   return id;
+}
+
+async function fetchStockWatch(productId: string, token: string): Promise<boolean> {
+  try {
+    const r = await fetch(`${API_BASE}/api/products/${productId}/stock-watch`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!r.ok) return false;
+    const d = await r.json();
+    return d.watching;
+  } catch { return false; }
+}
+
+async function toggleStockWatch(productId: string, token: string, watching: boolean): Promise<boolean> {
+  const method = watching ? "DELETE" : "POST";
+  const r = await fetch(`${API_BASE}/api/products/${productId}/stock-watch`, {
+    method,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!r.ok) return watching;
+  const d = await r.json();
+  return d.watching;
 }
 
 export default function ProductDetail() {
@@ -29,6 +53,8 @@ export default function ProductDetail() {
   const [liked, setLiked] = useState<boolean | null>(null);
   const [comment, setComment] = useState("");
   const [isFollowed, setIsFollowed] = useState(false);
+  const [watching, setWatching] = useState<boolean | null>(null);
+  const [watchLoading, setWatchLoading] = useState(false);
 
   const { data: product, isLoading } = useGetProduct(productId, { query: { enabled: !!productId, queryKey: getGetProductQueryKey(productId) } });
   const { data: shop } = useGetShop(product?.shopId ?? "", { query: { enabled: !!product?.shopId } });
@@ -42,6 +68,12 @@ export default function ProductDetail() {
   const followShop = useFollowShop();
 
   const isLiked = liked !== null ? liked : (product?.isLiked ?? false);
+  const isOOS = product?.stockQuantity === 0;
+
+  // Load watch state when product is loaded and user is available
+  if (product && user && watching === null) {
+    user.getIdToken().then(token => fetchStockWatch(productId, token).then(setWatching));
+  }
 
   const handleLike = () => {
     if (!user) { navigate("/login"); return; }
@@ -84,6 +116,18 @@ export default function ProductDetail() {
     else navigator.clipboard.writeText(window.location.href);
   };
 
+  const handleWatch = async () => {
+    if (!user) { navigate("/login"); return; }
+    setWatchLoading(true);
+    try {
+      const token = await user.getIdToken();
+      const next = await toggleStockWatch(productId, token, watching ?? false);
+      setWatching(next);
+    } finally {
+      setWatchLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="animate-pulse" data-testid="page-product-loading">
@@ -112,9 +156,19 @@ export default function ProductDetail() {
       {/* Image carousel */}
       <div className="relative aspect-square bg-muted overflow-hidden">
         {images.length > 0 ? (
-          <img src={images[imageIdx]} alt={product.title} className="w-full h-full object-cover" />
+          <img src={images[imageIdx]} alt={product.title} className={`w-full h-full object-cover ${isOOS ? "grayscale-[20%]" : ""}`} />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">No image</div>
+        )}
+        {isOOS && (
+          <div className="absolute top-3 left-3 bg-black/70 text-white text-xs font-bold px-3 py-1 rounded-full">
+            Sold Out
+          </div>
+        )}
+        {!isOOS && product.stockQuantity != null && product.stockQuantity <= 3 && (
+          <div className="absolute top-3 left-3 bg-amber-500/90 text-white text-xs font-bold px-3 py-1 rounded-full">
+            Only {product.stockQuantity} left
+          </div>
         )}
         {images.length > 1 && (
           <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
@@ -142,7 +196,7 @@ export default function ProductDetail() {
               </motion.button>
             </div>
           </div>
-          <p className="text-2xl font-extrabold text-secondary mt-1" data-testid="text-product-price">
+          <p className={`text-2xl font-extrabold mt-1 ${isOOS ? "text-muted-foreground" : "text-secondary"}`} data-testid="text-product-price">
             ₦{product.price.toLocaleString("en-NG")}
           </p>
           <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
@@ -191,9 +245,9 @@ export default function ProductDetail() {
           </div>
         )}
 
-        {/* WhatsApp CTA */}
-        {shop?.whatsappNumber && (
-          <div className="py-4 border-b border-border">
+        {/* WhatsApp CTA or Notify Me */}
+        <div className="py-4 border-b border-border space-y-2">
+          {!isOOS && shop?.whatsappNumber && (
             <Button
               className="w-full bg-[#25D366] hover:bg-[#1ebe5a] text-white font-semibold"
               onClick={handleWhatsApp}
@@ -201,8 +255,26 @@ export default function ProductDetail() {
             >
               Contact on WhatsApp
             </Button>
-          </div>
-        )}
+          )}
+          {isOOS && (
+            <Button
+              variant={watching ? "outline" : "default"}
+              className="w-full"
+              onClick={handleWatch}
+              disabled={watchLoading}
+              data-testid="button-notify"
+            >
+              {watching ? (
+                <><BellOff size={15} className="mr-2" />Stop Notifications</>
+              ) : (
+                <><Bell size={15} className="mr-2" />Notify me when back in stock</>
+              )}
+            </Button>
+          )}
+          {isOOS && (
+            <p className="text-center text-xs text-muted-foreground">This item is currently sold out.</p>
+          )}
+        </div>
 
         {/* Comments */}
         <div className="pt-4">
