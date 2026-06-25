@@ -1,9 +1,18 @@
 import { type Request, type Response, type NextFunction } from "express";
-  import { ZodError } from "zod";
 
   export interface HttpError extends Error {
     status?: number;
     statusCode?: number;
+  }
+
+  /** Duck-type check for ZodError — avoids importing zod directly. */
+  function isZodError(err: unknown): err is { issues: Array<{ path: (string|number)[]; message: string }> } {
+    return (
+      typeof err === "object" &&
+      err !== null &&
+      "issues" in err &&
+      Array.isArray((err as any).issues)
+    );
   }
 
   /**
@@ -19,7 +28,7 @@ import { type Request, type Response, type NextFunction } from "express";
     _next: NextFunction
   ): void {
     // Zod validation errors → 400 with field-level details
-    if (err instanceof ZodError) {
+    if (isZodError(err)) {
       res.status(400).json({
         error: "Validation failed",
         details: err.issues.map((i) => ({
