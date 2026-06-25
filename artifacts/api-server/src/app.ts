@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { authMiddleware } from "./middlewares/auth";
+import { globalErrorHandler } from "./middlewares/error-handler";
 
 const app: Express = express();
 
@@ -40,5 +41,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(authMiddleware);
 
 app.use("/api", router);
+
+// Must be last — catches errors thrown/passed from any route handler
+app.use(globalErrorHandler);
 
 export default app;
