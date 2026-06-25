@@ -8,7 +8,7 @@ export const reportStatusEnum = pgEnum("report_status", ["open", "reviewed", "di
 export const reportTargetEnum = pgEnum("report_target_type", ["shop", "product"]);
 
 export const shopsTable = pgTable("shops", {
-  id: text("id").primaryKey(), // Firebase UID
+  id: text("id").primaryKey(),
   businessName: text("business_name").notNull(),
   businessNameLower: text("business_name_lower").notNull(),
   bio: text("bio"),
@@ -52,7 +52,15 @@ export const productsTable = pgTable("products", {
   viewCount: integer("view_count").notNull().default(0),
   whatsappClickCount: integer("whatsapp_click_count").notNull().default(0),
   trendScore: real("trend_score").notNull().default(0),
+  stockQuantity: integer("stock_quantity").notNull().default(1),
   status: productStatusEnum("status").notNull().default("active"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const stockWatchersTable = pgTable("stock_watchers", {
+  id: text("id").primaryKey(),
+  productId: text("product_id").notNull().references(() => productsTable.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
