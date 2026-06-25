@@ -64,7 +64,7 @@ export default function CreateShop() {
       });
       navigate("/dashboard");
     } catch (err: any) {
-      setError(err.message || "Failed to create shop");
+      setError(err?.response?.data?.message || err?.message?.replace(/Firebase:.*/, "") || "Failed to create shop. Please try again.");
     }
   };
 
