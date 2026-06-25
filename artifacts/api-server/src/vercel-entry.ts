@@ -1,4 +1,5 @@
 // Entry point for the Vercel serverless function.
-// Exports the Express app directly (no port binding — Vercel handles that).
-import app from "./app";
+// Imports vercel-app (no pino-http, no worker threads) so esbuild can
+// produce a single outfile without the esbuildPluginPino multi-entry conflict.
+import app from "./vercel-app";
 export default app;
