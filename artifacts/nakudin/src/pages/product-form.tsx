@@ -41,6 +41,7 @@ export default function ProductForm() {
   const [images, setImages] = useState<string[]>([]);
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
+  const [stockQuantity, setStockQuantity] = useState(1);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -52,6 +53,7 @@ export default function ProductForm() {
       setImages(existing.images ?? []);
       setCity(existing.locationCity ?? "");
       setState(existing.locationState ?? "");
+      setStockQuantity(existing.stockQuantity ?? 1);
     }
   }, [existing]);
 
@@ -76,12 +78,12 @@ export default function ProductForm() {
       if (isEditing && editId) {
         await updateProduct.mutateAsync({
           productId: editId,
-          data: { title: title.trim(), price: priceNum, description: description || undefined, category: category || undefined, images, locationCity: city || undefined, locationState: state || undefined },
+          data: { title: title.trim(), price: priceNum, description: description || undefined, category: category || undefined, images, locationCity: city || undefined, locationState: state || undefined, stockQuantity },
         });
         queryClient.invalidateQueries({ queryKey: getGetProductQueryKey(editId) });
       } else {
         await createProduct.mutateAsync({
-          data: { title: title.trim(), price: priceNum, description: description || undefined, category: category || undefined, images, locationCity: city || shop?.locationCity || undefined, locationState: state || shop?.locationState || undefined },
+          data: { title: title.trim(), price: priceNum, description: description || undefined, category: category || undefined, images, locationCity: city || shop?.locationCity || undefined, locationState: state || shop?.locationState || undefined, stockQuantity },
         });
       }
       queryClient.invalidateQueries({ queryKey: getListProductsQueryKey({ shopId: shop?.id }) });
@@ -154,6 +156,35 @@ export default function ProductForm() {
             className="mt-1"
             data-testid="input-price"
           />
+        </div>
+
+        <div>
+          <Label htmlFor="stock">Stock Quantity</Label>
+          <p className="text-xs text-muted-foreground mt-0.5 mb-1">How many units do you have available? (0 = sold out)</p>
+          <div className="flex items-center gap-2 mt-1">
+            <button
+              type="button"
+              onClick={() => setStockQuantity(q => Math.max(0, q - 1))}
+              className="w-8 h-8 rounded-lg border border-input bg-background flex items-center justify-center text-foreground hover:bg-muted transition-colors font-bold"
+            >−</button>
+            <Input
+              id="stock"
+              type="number"
+              min="0"
+              value={stockQuantity}
+              onChange={e => setStockQuantity(Math.max(0, parseInt(e.target.value) || 0))}
+              className="w-24 text-center"
+              data-testid="input-stock"
+            />
+            <button
+              type="button"
+              onClick={() => setStockQuantity(q => q + 1)}
+              className="w-8 h-8 rounded-lg border border-input bg-background flex items-center justify-center text-foreground hover:bg-muted transition-colors font-bold"
+            >+</button>
+          </div>
+          {stockQuantity === 0 && (
+            <p className="text-xs text-amber-500 mt-1">This product will be marked as sold out and hidden from the main feed.</p>
+          )}
         </div>
 
         <div>
