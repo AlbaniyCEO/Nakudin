@@ -122,22 +122,17 @@ async function buildAll() {
   const apiDir = path.resolve(artifactDir, "..", "..", "api");
   await mkdir(apiDir, { recursive: true });
 
+  // vercel-app.ts uses console.* instead of pino-http, so no esbuildPluginPino
+  // is needed here and esbuild produces exactly one output file — outfile works.
   await esbuild({
     entryPoints: [path.resolve(artifactDir, "src/vercel-entry.ts")],
     platform: "node",
     bundle: true,
     format: "esm",
-    // outdir (not outfile) is required when esbuildPluginPino injects extra
-    // worker entry points. entryNames maps the main entry to "index" so the
-    // primary output is api/index.mjs; pino workers land alongside it.
-    outdir: apiDir,
-    entryNames: "index",
-    outExtension: { ".js": ".mjs" },
+    outfile: path.resolve(apiDir, "index.mjs"),
     logLevel: "info",
     external: EXTERNAL,
     sourcemap: false,
-    // No pino-pretty in production / serverless — plain JSON to stdout.
-    plugins: [esbuildPluginPino({ transports: [] })],
     banner: { js: ESM_BANNER.js },
   });
 
