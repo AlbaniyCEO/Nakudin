@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation, Link } from "wouter";
 import { useAuth } from "@/lib/auth-context";
 import {
-  useGetMyShop, useGetShopAnalytics, useListProducts, useDeleteProduct,
+  useGetMyShop, useGetShopAnalytics, useListProducts, useDeleteProduct, useUpdateProduct,
   getGetMyShopQueryKey, getListProductsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -74,6 +74,41 @@ function SubscriptionBanner({ status, trialEndsAt }: { status: string; trialEnds
   return null;
 }
 
+function StockStepper({ productId, stock, disabled }: { productId: string; stock: number; disabled: boolean }) {
+  const queryClient = useQueryClient();
+  const updateProduct = useUpdateProduct();
+  const [local, setLocal] = useState(stock);
+  const [saving, setSaving] = useState(false);
+
+  const change = async (delta: number) => {
+    const next = Math.max(0, local + delta);
+    setLocal(next);
+    setSaving(true);
+    try {
+      await updateProduct.mutateAsync({ productId, data: { stockQuantity: next } });
+      queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        disabled={disabled || saving || local === 0}
+        onClick={() => change(-1)}
+        className="w-6 h-6 rounded border border-input flex items-center justify-center text-foreground disabled:opacity-40 hover:bg-muted text-sm font-bold"
+      >−</button>
+      <span className={`text-xs font-semibold w-6 text-center ${local === 0 ? "text-destructive" : local <= 3 ? "text-amber-500" : "text-green-400"}`}>{local}</span>
+      <button
+        disabled={disabled || saving}
+        onClick={() => change(+1)}
+        className="w-6 h-6 rounded border border-input flex items-center justify-center text-foreground disabled:opacity-40 hover:bg-muted text-sm font-bold"
+      >+</button>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
@@ -128,6 +163,8 @@ export default function Dashboard() {
   };
 
   const locked = shop.subscriptionStatus === "locked";
+  const lowStockItems = products?.products.filter(p => (p.stockQuantity ?? 1) > 0 && (p.stockQuantity ?? 1) <= 3) ?? [];
+  const outOfStockItems = products?.products.filter(p => (p.stockQuantity ?? 1) === 0) ?? [];
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="px-4 py-4 pb-24" data-testid="page-dashboard">
@@ -143,6 +180,21 @@ export default function Dashboard() {
       </div>
 
       <SubscriptionBanner status={shop.subscriptionStatus} trialEndsAt={shop.trialEndsAt} />
+
+      {/* Low stock alert banner */}
+      {(lowStockItems.length > 0 || outOfStockItems.length > 0) && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 mb-4 flex items-start gap-2">
+          <AlertTriangle size={15} className="text-amber-500 flex-shrink-0 mt-0.5" />
+          <div className="text-xs text-amber-600 dark:text-amber-400">
+            {outOfStockItems.length > 0 && (
+              <p><span className="font-semibold">{outOfStockItems.length} product{outOfStockItems.length > 1 ? "s" : ""} sold out</span> — update stock or they'll stay hidden from the feed.</p>
+            )}
+            {lowStockItems.length > 0 && (
+              <p className={outOfStockItems.length > 0 ? "mt-0.5" : ""}><span className="font-semibold">{lowStockItems.length} product{lowStockItems.length > 1 ? "s" : ""} low on stock</span> — restock soon to keep selling.</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 mb-6">
@@ -166,50 +218,58 @@ export default function Dashboard() {
       </div>
 
       <div className="space-y-2">
-        {products?.products.map(p => (
-          <div key={p.id} className="bg-card border border-card-border rounded-xl flex items-center gap-3 p-3">
-            <div className="w-14 h-14 rounded-lg bg-muted overflow-hidden flex-shrink-0">
-              {p.images?.[0] ? (
-                <img src={p.images[0]} alt={p.title} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full bg-muted" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate" data-testid={`text-product-${p.id}`}>{p.title}</p>
-              <p className="text-sm font-bold text-secondary">₦{p.price.toLocaleString("en-NG")}</p>
-              <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
-                <span>{p.viewCount} views</span>
-                <span>{p.likeCount} likes</span>
-                <span className={`px-1.5 rounded-full ${p.status === "active" ? "bg-green-500/10 text-green-400" : "bg-muted text-muted-foreground"}`}>
-                  {p.status}
-                </span>
+        {products?.products.map(p => {
+          const stock = p.stockQuantity ?? 1;
+          return (
+            <div key={p.id} className={`bg-card border rounded-xl flex items-center gap-3 p-3 ${stock === 0 ? "border-destructive/30 opacity-80" : stock <= 3 ? "border-amber-500/30" : "border-card-border"}`}>
+              <div className="w-14 h-14 rounded-lg bg-muted overflow-hidden flex-shrink-0">
+                {p.images?.[0] ? (
+                  <img src={p.images[0]} alt={p.title} className={`w-full h-full object-cover ${stock === 0 ? "grayscale-[40%]" : ""}`} />
+                ) : (
+                  <div className="w-full h-full bg-muted" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate" data-testid={`text-product-${p.id}`}>{p.title}</p>
+                <p className="text-sm font-bold text-secondary">₦{p.price.toLocaleString("en-NG")}</p>
+                <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground flex-wrap">
+                  <span>{p.viewCount} views</span>
+                  <span>{p.likeCount} likes</span>
+                  <span className={`px-1.5 rounded-full ${p.status === "active" ? "bg-green-500/10 text-green-400" : "bg-muted text-muted-foreground"}`}>
+                    {p.status}
+                  </span>
+                  {stock === 0 && <span className="px-1.5 rounded-full bg-destructive/10 text-destructive font-medium">Sold Out</span>}
+                  {stock > 0 && stock <= 3 && <span className="px-1.5 rounded-full bg-amber-500/10 text-amber-500 font-medium">Low: {stock}</span>}
+                </div>
+              </div>
+              <div className="flex flex-col items-end gap-1.5">
+                <div className="flex gap-1">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7"
+                    onClick={() => navigate(`/dashboard/product/${p.id}/edit`)}
+                    disabled={locked}
+                    data-testid={`button-edit-product-${p.id}`}
+                  >
+                    <Pencil size={12} />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-destructive hover:text-destructive"
+                    onClick={() => handleDelete(p.id)}
+                    disabled={deletingId === p.id}
+                    data-testid={`button-delete-product-${p.id}`}
+                  >
+                    <Trash2 size={12} />
+                  </Button>
+                </div>
+                <StockStepper productId={p.id} stock={stock} disabled={locked} />
               </div>
             </div>
-            <div className="flex gap-1">
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8"
-                onClick={() => navigate(`/dashboard/product/${p.id}/edit`)}
-                disabled={locked}
-                data-testid={`button-edit-product-${p.id}`}
-              >
-                <Pencil size={14} />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8 text-destructive hover:text-destructive"
-                onClick={() => handleDelete(p.id)}
-                disabled={deletingId === p.id}
-                data-testid={`button-delete-product-${p.id}`}
-              >
-                <Trash2 size={14} />
-              </Button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
         {!products?.products.length && (
           <div className="py-10 text-center text-muted-foreground">
             <Package size={32} className="mx-auto mb-3 opacity-30" />
