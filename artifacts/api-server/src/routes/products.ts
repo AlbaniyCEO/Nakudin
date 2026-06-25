@@ -1,11 +1,35 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { productsTable, shopsTable, likesTable, commentsTable, whatsappClicksTable } from "@workspace/db";
+import { productsTable, shopsTable, likesTable, commentsTable, whatsappClicksTable, stockWatchersTable } from "@workspace/db";
 import { desc, eq, and, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { CreateProductBody, UpdateProductBody, CreateCommentBody, LogWhatsappClickBody } from "@workspace/api-zod";
 
 const router = Router();
+
+function serializeProduct(p: typeof productsTable.$inferSelect, isLiked = false) {
+  return {
+    id: p.id,
+    shopId: p.shopId,
+    title: p.title,
+    description: p.description,
+    price: p.price,
+    images: p.images || [],
+    category: p.category,
+    locationCity: p.locationCity,
+    locationState: p.locationState,
+    locationLat: p.locationLat,
+    locationLng: p.locationLng,
+    likeCount: p.likeCount,
+    viewCount: p.viewCount,
+    whatsappClickCount: p.whatsappClickCount,
+    trendScore: p.trendScore,
+    stockQuantity: p.stockQuantity,
+    status: p.status,
+    isLiked,
+    createdAt: p.createdAt.toISOString(),
+  };
+}
 
 router.get("/products", async (req, res) => {
   try {
@@ -39,28 +63,7 @@ router.get("/products", async (req, res) => {
       liked.forEach(l => likedProductIds.add(l.productId));
     }
 
-    const products = items.map(p => ({
-      id: p.id,
-      shopId: p.shopId,
-      title: p.title,
-      description: p.description,
-      price: p.price,
-      images: p.images || [],
-      category: p.category,
-      locationCity: p.locationCity,
-      locationState: p.locationState,
-      locationLat: p.locationLat,
-      locationLng: p.locationLng,
-      likeCount: p.likeCount,
-      viewCount: p.viewCount,
-      whatsappClickCount: p.whatsappClickCount,
-      trendScore: p.trendScore,
-      status: p.status,
-      isLiked: likedProductIds.has(p.id),
-      createdAt: p.createdAt.toISOString(),
-    }));
-
-    res.json({ products, nextCursor: hasMore ? items[items.length - 1].id : null });
+    res.json({ products: items.map(p => serializeProduct(p, likedProductIds.has(p.id))), nextCursor: hasMore ? items[items.length - 1].id : null });
   } catch (err) {
     req.log.error({ err }, "List products error");
     res.status(500).json({ error: "Internal server error" });
@@ -92,29 +95,11 @@ router.post("/products", async (req, res) => {
       locationState: parsed.data.locationState || shop[0].locationState || undefined,
       locationLat: parsed.data.locationLat || shop[0].locationLat || undefined,
       locationLng: parsed.data.locationLng || shop[0].locationLng || undefined,
+      stockQuantity: parsed.data.stockQuantity ?? 1,
       trendScore: 1.0,
     }).returning();
 
-    res.status(201).json({
-      id: product.id,
-      shopId: product.shopId,
-      title: product.title,
-      description: product.description,
-      price: product.price,
-      images: product.images || [],
-      category: product.category,
-      locationCity: product.locationCity,
-      locationState: product.locationState,
-      locationLat: product.locationLat,
-      locationLng: product.locationLng,
-      likeCount: product.likeCount,
-      viewCount: product.viewCount,
-      whatsappClickCount: product.whatsappClickCount,
-      trendScore: product.trendScore,
-      status: product.status,
-      isLiked: false,
-      createdAt: product.createdAt.toISOString(),
-    });
+    res.status(201).json(serializeProduct(product));
   } catch (err) {
     req.log.error({ err }, "Create product error");
     res.status(500).json({ error: "Internal server error" });
@@ -127,7 +112,6 @@ router.get("/products/:productId", async (req, res) => {
     const [product] = await db.select().from(productsTable).where(eq(productsTable.id, req.params.productId)).limit(1);
     if (!product) return res.status(404).json({ error: "Not found" });
 
-    // Increment view count
     await db.update(productsTable).set({ viewCount: sql`${productsTable.viewCount} + 1` }).where(eq(productsTable.id, product.id));
 
     let isLiked = false;
@@ -136,26 +120,7 @@ router.get("/products/:productId", async (req, res) => {
       isLiked = liked.length > 0;
     }
 
-    res.json({
-      id: product.id,
-      shopId: product.shopId,
-      title: product.title,
-      description: product.description,
-      price: product.price,
-      images: product.images || [],
-      category: product.category,
-      locationCity: product.locationCity,
-      locationState: product.locationState,
-      locationLat: product.locationLat,
-      locationLng: product.locationLng,
-      likeCount: product.likeCount,
-      viewCount: product.viewCount + 1,
-      whatsappClickCount: product.whatsappClickCount,
-      trendScore: product.trendScore,
-      status: product.status,
-      isLiked,
-      createdAt: product.createdAt.toISOString(),
-    });
+    res.json({ ...serializeProduct(product, isLiked), viewCount: product.viewCount + 1 });
   } catch (err) {
     req.log.error({ err }, "Get product error");
     res.status(500).json({ error: "Internal server error" });
@@ -174,6 +139,9 @@ router.patch("/products/:productId", async (req, res) => {
     if (!existing) return res.status(404).json({ error: "Not found" });
     if (existing.shopId !== userId) return res.status(403).json({ error: "Forbidden" });
 
+    const prevStock = existing.stockQuantity;
+    const newStock = parsed.data.stockQuantity;
+
     const [product] = await db.update(productsTable)
       .set({
         ...(parsed.data.title && { title: parsed.data.title }),
@@ -184,30 +152,18 @@ router.patch("/products/:productId", async (req, res) => {
         ...(parsed.data.status && { status: parsed.data.status as any }),
         ...(parsed.data.locationCity !== undefined && { locationCity: parsed.data.locationCity }),
         ...(parsed.data.locationState !== undefined && { locationState: parsed.data.locationState }),
+        ...(newStock !== undefined && { stockQuantity: newStock }),
       })
       .where(eq(productsTable.id, req.params.productId))
       .returning();
 
-    res.json({
-      id: product.id,
-      shopId: product.shopId,
-      title: product.title,
-      description: product.description,
-      price: product.price,
-      images: product.images || [],
-      category: product.category,
-      locationCity: product.locationCity,
-      locationState: product.locationState,
-      locationLat: product.locationLat,
-      locationLng: product.locationLng,
-      likeCount: product.likeCount,
-      viewCount: product.viewCount,
-      whatsappClickCount: product.whatsappClickCount,
-      trendScore: product.trendScore,
-      status: product.status,
-      isLiked: false,
-      createdAt: product.createdAt.toISOString(),
-    });
+    // If restocked from 0: clear watchers (FCM push can be added here)
+    if (newStock !== undefined && newStock > 0 && prevStock === 0) {
+      req.log.info({ productId: product.id, prevStock, newStock }, "Product restocked — clearing watchers");
+      await db.delete(stockWatchersTable).where(eq(stockWatchersTable.productId, product.id));
+    }
+
+    res.json(serializeProduct(product));
   } catch (err) {
     req.log.error({ err }, "Update product error");
     res.status(500).json({ error: "Internal server error" });
@@ -227,6 +183,49 @@ router.delete("/products/:productId", async (req, res) => {
     res.status(204).send();
   } catch (err) {
     req.log.error({ err }, "Delete product error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Stock watch (notify me when back in stock)
+router.get("/products/:productId/stock-watch", async (req, res) => {
+  const userId = (req as any).userId;
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const existing = await db.select().from(stockWatchersTable).where(
+      and(eq(stockWatchersTable.productId, req.params.productId), eq(stockWatchersTable.userId, userId))
+    ).limit(1);
+    res.json({ watching: existing.length > 0 });
+  } catch (err) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/products/:productId/stock-watch", async (req, res) => {
+  const userId = (req as any).userId;
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const existing = await db.select().from(stockWatchersTable).where(
+      and(eq(stockWatchersTable.productId, req.params.productId), eq(stockWatchersTable.userId, userId))
+    ).limit(1);
+    if (!existing.length) {
+      await db.insert(stockWatchersTable).values({ id: randomUUID(), productId: req.params.productId, userId });
+    }
+    res.json({ watching: true });
+  } catch (err) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.delete("/products/:productId/stock-watch", async (req, res) => {
+  const userId = (req as any).userId;
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    await db.delete(stockWatchersTable).where(
+      and(eq(stockWatchersTable.productId, req.params.productId), eq(stockWatchersTable.userId, userId))
+    );
+    res.json({ watching: false });
+  } catch (err) {
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -357,6 +356,7 @@ router.get("/products/:productId/related", async (req, res) => {
       shopLogoUrl: shop.logoUrl, shopWhatsapp: shop.whatsappNumber,
       category: p.category, locationCity: p.locationCity || shop.locationCity,
       locationState: p.locationState || shop.locationState,
+      stockQuantity: p.stockQuantity,
       distanceKm: null, isLiked: false, isFollowed: false,
       trendScore: p.trendScore, createdAt: p.createdAt.toISOString(),
     })));
