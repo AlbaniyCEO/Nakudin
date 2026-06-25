@@ -35,6 +35,8 @@ export interface FeedProduct {
   isFollowed?: boolean;
   /** @nullable */
   trendScore?: number | null;
+  /** @nullable */
+  stockQuantity?: number | null;
   createdAt: string;
 }
 
@@ -76,6 +78,7 @@ export interface Product {
   whatsappClickCount: number;
   /** @nullable */
   trendScore?: number | null;
+  stockQuantity?: number;
   status: ProductStatus;
   isLiked?: boolean;
   createdAt: string;
@@ -94,6 +97,7 @@ export interface ProductInput {
   locationState?: string;
   locationLat?: number;
   locationLng?: number;
+  stockQuantity?: number;
 }
 
 export type ProductUpdateStatus = typeof ProductUpdateStatus[keyof typeof ProductUpdateStatus];
@@ -116,6 +120,7 @@ export interface ProductUpdate {
   status?: ProductUpdateStatus;
   locationCity?: string;
   locationState?: string;
+  stockQuantity?: number;
 }
 
 export interface ProductPage {
