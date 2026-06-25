@@ -68,7 +68,7 @@ export default function ShopEdit() {
       setSaved(true);
       setTimeout(() => navigate(`/shops/${shop?.id}`), 1000);
     } catch (err: any) {
-      setError(err.message || "Failed to save changes");
+      setError(err?.response?.data?.message || err?.message?.replace(/Firebase:.*/, "") || "Failed to save changes. Please try again.");
     }
   };
 
