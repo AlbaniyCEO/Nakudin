@@ -5,7 +5,7 @@ import productsRouter from "./products";
 import shopsRouter from "./shops";
 import searchRouter from "./search";
 import reportsRouter from "./reports";
-import cloudinaryRouter from "./cloudinary";
+import uploadRouter from "./upload";
 import adminRouter from "./admin";
 import paymentsRouter from "./payments";
 
@@ -17,7 +17,7 @@ router.use(productsRouter);
 router.use(shopsRouter);
 router.use(searchRouter);
 router.use(reportsRouter);
-router.use(cloudinaryRouter);
+router.use(uploadRouter);
 router.use(adminRouter);
 router.use(paymentsRouter);
 
