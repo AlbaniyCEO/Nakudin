@@ -28,7 +28,7 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 
 app.use(cors());
 app.use(
-  express.json({
+  express.json({ limit: "10mb",
     verify: (req: any, _res, buf) => {
       if (typeof req.url === "string" && req.url.includes("/payments/webhook")) {
         req.rawBody = buf;
