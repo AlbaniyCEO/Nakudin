@@ -1,4 +1,4 @@
-import { pgTable, text, integer, real, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, real, boolean, timestamp, pgEnum, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -34,7 +34,10 @@ export const shopsTable = pgTable("shops", {
   nextBillingDate: timestamp("next_billing_date"),
   suspended: boolean("suspended").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+},
+  (table) => [
+    uniqueIndex("shops_business_name_lower_unique").on(table.businessNameLower),
+  ]);
 
 export const productsTable = pgTable("products", {
   id: text("id").primaryKey(),
