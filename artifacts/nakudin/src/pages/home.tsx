@@ -1,4 +1,4 @@
-import { useGetFeed } from "@workspace/api-client-react";
+import { useGetFeed } from "@/lib/hooks";
 import { ProductCard } from "@/components/ProductCard";
 import { Loader2, Globe } from "lucide-react";
 import { NakudinLogo } from "@/components/NakudinLogo";
