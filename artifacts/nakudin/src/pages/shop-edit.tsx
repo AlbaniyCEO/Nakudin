@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth-context";
-import { useGetMyShop, useUpdateMyShop, getGetMyShopQueryKey } from "@workspace/api-client-react";
+import { useGetMyShop, useUpdateMyShop, getGetMyShopQueryKey } from "@/lib/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
