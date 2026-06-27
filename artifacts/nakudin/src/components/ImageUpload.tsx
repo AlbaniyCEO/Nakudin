@@ -1,6 +1,9 @@
 import { useState, useRef } from "react";
   import { Upload, X, Loader2 } from "lucide-react";
 
+  const CLOUD_NAME = "dgoczegss";
+  const UPLOAD_PRESET = "Nakudin";
+
   interface ImageUploadProps {
     value?: string;
     onChange: (url: string) => void;
@@ -17,24 +20,22 @@ import { useState, useRef } from "react";
       setUploading(true);
       setError(null);
       try {
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve((reader.result as string).split(",")[1]);
-          reader.onerror = () => reject(new Error("Failed to read file"));
-          reader.readAsDataURL(file);
-        });
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("upload_preset", UPLOAD_PRESET);
+        formData.append("folder", "nakudin");
 
-        const res = await fetch("/api/uploads/image", {
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ data: base64, contentType: file.type }),
+          body: formData,
         });
 
-        const json = await res.json();
-        if (json.url) {
-          onChange(json.url);
+        if (!res.ok) { setError("Upload failed. Please try again."); return; }
+        const data = await res.json();
+        if (data.secure_url) {
+          onChange(data.secure_url);
         } else {
-          setError(json.error || "Upload failed");
+          setError(data.error?.message ?? "Upload failed");
         }
       } catch {
         setError("Upload failed. Please try again.");
@@ -55,6 +56,7 @@ import { useState, useRef } from "react";
             <>
               <img src={value} alt="Uploaded" className="w-full h-full object-cover" />
               <button
+                type="button"
                 onClick={(e) => { e.stopPropagation(); onChange(""); }}
                 className="absolute top-2 right-2 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-black/80"
                 data-testid="button-remove-image"
@@ -64,14 +66,10 @@ import { useState, useRef } from "react";
             </>
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground">
-              {uploading ? (
-                <Loader2 size={24} className="animate-spin" />
-              ) : (
-                <>
-                  <Upload size={24} />
-                  <span className="text-xs text-center px-2">{label}</span>
-                </>
-              )}
+              {uploading
+                ? <Loader2 size={24} className="animate-spin" />
+                : <><Upload size={24} /><span className="text-xs text-center px-2">{label}</span></>
+              }
             </div>
           )}
         </div>
