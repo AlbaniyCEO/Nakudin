@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import {
   useGetMyShop, useGetShopAnalytics, useListProducts, useDeleteProduct, useUpdateProduct,
   getGetMyShopQueryKey, getListProductsQueryKey,
-} from "@workspace/api-client-react";
+} from "@/lib/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
