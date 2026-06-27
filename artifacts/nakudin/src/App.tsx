@@ -5,7 +5,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, auth } from "@/lib/auth-context";
 import { BottomNav } from "@/components/BottomNav";
-import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { I18nProvider } from "@/i18n";
 
 import NotFound from "@/pages/not-found";
@@ -33,22 +32,6 @@ const queryClient = new QueryClient({
   },
 });
 
-function AuthTokenSetter() {
-  useEffect(() => {
-    setAuthTokenGetter(async () => {
-      if (!auth) return null;
-      const user = auth.currentUser;
-      if (!user) return null;
-      try {
-        return await user.getIdToken();
-      } catch {
-        return null;
-      }
-    });
-    return () => setAuthTokenGetter(null);
-  }, []);
-  return null;
-}
 
 const NO_NAV_PATHS = ["/login", "/register", "/create-shop"];
 
@@ -58,8 +41,7 @@ function Layout() {
 
   return (
     <div className="max-w-screen-sm mx-auto min-h-[100dvh] pb-16 relative bg-background">
-      <AuthTokenSetter />
-      <Switch>
+            <Switch>
         <Route path="/" component={Home} />
         <Route path="/explore" component={Explore} />
         <Route path="/shops" component={Shops} />
