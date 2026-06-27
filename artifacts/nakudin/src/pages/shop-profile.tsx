@@ -5,7 +5,7 @@ import {
   useGetShop, useListProducts, useFollowShop, useUnfollowShop,
   useGetShopReviews, useCanReviewShop, useCreateReview,
   getGetShopQueryKey, getGetShopReviewsQueryKey,
-} from "@workspace/api-client-react";
+} from "@/lib/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { ProductCard } from "@/components/ProductCard";
 import { ShopCard } from "@/components/ShopCard";
