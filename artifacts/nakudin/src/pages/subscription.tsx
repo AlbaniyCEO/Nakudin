@@ -1,34 +1,19 @@
 import { useAuth } from "@/lib/auth-context";
-import { useGetMyShop, getGetMyShopQueryKey } from "@workspace/api-client-react";
+import { useGetMyShop, useUpdateMyShop, getGetMyShopQueryKey } from "@/lib/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Clock, AlertTriangle, Lock, ArrowLeft, Zap, Star } from "lucide-react";
 import { useI18n } from "@/i18n";
 
-declare const PaystackPop: {
-  setup: (opts: {
-    key: string;
-    email: string;
-    amount: number;
-    currency: string;
-    ref: string;
-    metadata: Record<string, unknown>;
-    onSuccess: (txn: { reference: string }) => void;
-    onCancel: () => void;
-  }) => { openIframe: () => void };
-};
-
-const PUBLIC_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY ?? "";
-
 const PLANS = [
   {
     id: "monthly",
     name: "Monthly",
-    price: "₦1,000",
-    period: "/month",
-    saving: null,
-    amountKobo: 100_000,
+    price: "Included",
+    period: "",
+    saving: "No payment required",
+    amountKobo: 0,
     features: [
       "List up to 20 products",
       "WhatsApp click tracking",
@@ -41,10 +26,10 @@ const PLANS = [
   {
     id: "yearly",
     name: "Yearly",
-    price: "₦9,000",
-    period: "/year",
-    saving: "₦750/month — save ₦3,000",
-    amountKobo: 900_000,
+    price: "Included",
+    period: "",
+    saving: "Yearly billing tools remain available when payments are enabled",
+    amountKobo: 0,
     features: [
       "List up to 20 products",
       "WhatsApp click tracking",
@@ -78,39 +63,25 @@ export default function Subscription() {
   const { user } = useAuth();
   const { t } = useI18n();
   const { data: shop } = useGetMyShop({ query: { enabled: !!user } });
+  const updateShop = useUpdateMyShop();
   const queryClient = useQueryClient();
 
-  const handleSubscribe = (plan: typeof PLANS[number]) => {
-    if (!user?.email) return;
-
-    if (!PUBLIC_KEY || typeof PaystackPop === "undefined") {
-      alert(t("paystackKeyMissing"));
-      return;
-    }
-
-    const ref = `nakudin-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-    const handler = PaystackPop.setup({
-      key: PUBLIC_KEY,
-      email: user.email,
-      amount: plan.amountKobo,
-      currency: "NGN",
-      ref,
-      metadata: {
-        shopId: user.uid,
-        plan: plan.id,
-        custom_fields: [
-          { display_name: "Shop ID", variable_name: "shopId", value: user.uid },
-          { display_name: "Plan", variable_name: "plan", value: plan.id },
-        ],
-      },
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getGetMyShopQueryKey() });
-      },
-      onCancel: () => {},
+  const markPlanActiveLocally = async (plan: typeof PLANS[number]) => {
+    const nextBillingDate = new Date();
+    if (plan.id === "yearly") nextBillingDate.setFullYear(nextBillingDate.getFullYear() + 1);
+    else nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
+    await updateShop.mutateAsync({
+      subscriptionStatus: "active",
+      billingCycle: plan.id as "monthly" | "yearly",
+      nextBillingDate: nextBillingDate.toISOString(),
     });
+    queryClient.invalidateQueries({ queryKey: getGetMyShopQueryKey() });
+  };
 
-    handler.openIframe();
+  const handleSubscribe = (plan: typeof PLANS[number]) => {
+    markPlanActiveLocally(plan).catch(() => {
+      queryClient.invalidateQueries({ queryKey: getGetMyShopQueryKey() });
+    });
   };
 
   return (
@@ -125,13 +96,16 @@ export default function Subscription() {
       </div>
 
       {shop && (
-        <div className="bg-card border border-card-border rounded-xl p-4 mb-4">
+        <div className="surface-1 rounded-xl p-4 mb-4">
           <p className="text-sm text-muted-foreground mb-2">{t("currentStatus")}</p>
           <StatusBadge status={shop.subscriptionStatus} />
           {shop.trialEndsAt && shop.subscriptionStatus === "trial" && (
             <p className="text-xs text-muted-foreground mt-2">
               Trial ends {new Date(shop.trialEndsAt).toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" })}
             </p>
+          )}
+          {shop.nextBillingDate && (
+            <p className="text-xs text-muted-foreground mt-2">Next billing: {new Date(shop.nextBillingDate).toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" })} · {shop.billingCycle}</p>
           )}
           {shop.subscriptionStatus === "grace" && (
             <p className="text-xs text-secondary mt-2">{t("gracePeriodNote")}</p>
@@ -145,7 +119,7 @@ export default function Subscription() {
       <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-6 flex items-start gap-2">
         <Clock size={15} className="text-primary flex-shrink-0 mt-0.5" />
         <p className="text-xs text-muted-foreground">
-          <span className="text-primary font-semibold">60-day free trial</span> — {t("trialNote").replace("60-day free trial — ", "")}
+          <span className="text-primary font-semibold">Included access</span> — subscription tools are available to every shop while paid access is disabled.
         </p>
       </div>
 
@@ -157,7 +131,7 @@ export default function Subscription() {
           return (
             <div
               key={plan.id}
-              className={`bg-card border rounded-xl p-4 relative ${plan.highlight ? "border-primary glow-cyan" : "border-card-border"}`}
+              className={`surface-1 rounded-xl p-4 relative ${plan.highlight ? "border-primary glow-cyan" : "border-card-border"}`}
             >
               {plan.highlight && (
                 <span className="absolute -top-2.5 left-4 text-xs bg-primary text-black font-bold px-2 py-0.5 rounded-full">
@@ -165,7 +139,7 @@ export default function Subscription() {
                 </span>
               )}
               <div className="flex items-center gap-2 mb-3">
-                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${plan.highlight ? "bg-primary/20" : "bg-muted"}`}>
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${plan.highlight ? "bg-primary/20" : "surface-2"}`}>
                   <Icon size={14} className={plan.highlight ? "text-primary" : "text-muted-foreground"} />
                 </div>
                 <p className="font-semibold text-foreground">{plan.name}</p>
@@ -189,18 +163,18 @@ export default function Subscription() {
                 className="w-full"
                 variant={plan.highlight ? "default" : "outline"}
                 onClick={() => handleSubscribe(plan)}
-                disabled={shop?.subscriptionStatus === "active"}
+                disabled={(shop?.subscriptionStatus === "active" && shop?.billingCycle === plan.id) || updateShop.isPending}
               >
-                {shop?.subscriptionStatus === "active" ? "Active" : `${t("selectPlan")} ${plan.name}`}
+                {shop?.subscriptionStatus === "active" && shop?.billingCycle === plan.id ? "Active" : updateShop.isPending ? "Updating..." : `Activate ${plan.name}` }
               </Button>
             </div>
           );
         })}
       </div>
 
-      <div className="bg-card border border-card-border rounded-xl p-4">
-        <h3 className="text-sm font-semibold text-foreground mb-3">{t("paymentHistory")}</h3>
-        <p className="text-sm text-muted-foreground text-center py-4">{t("noPaymentsYet")}</p>
+      <div className="surface-1 rounded-xl p-4">
+        <h3 className="text-sm font-semibold text-foreground mb-3">Access</h3>
+        <p className="text-sm text-muted-foreground text-center py-4">Paid access is currently disabled; all shops can use these features.</p>
       </div>
     </div>
   );

@@ -33,6 +33,11 @@ export default defineConfig({
     outDir: path.resolve(import.meta.dirname, 'dist/public'),
     emptyOutDir: true,
   },
+  define: {
+    'import.meta.env.VITE_FIREBASE_API_KEY': JSON.stringify(
+      process.env.VITE_FIREBASE_API_KEY || process.env.GOOGLE_API_KEY || ''
+    ),
+  },
   server: {
     port,
     strictPort: true,

@@ -1,8 +1,9 @@
+import { Link } from "wouter";
 import { useGetFeed } from "@/lib/hooks";
 import { ProductCard } from "@/components/ProductCard";
-import { Loader2, Globe } from "lucide-react";
+import { Loader2, Globe, MessageSquareText } from "lucide-react";
 import { NakudinLogo } from "@/components/NakudinLogo";
-import { useI18n, type Lang } from "@/i18n";
+import { useI18n } from "@/i18n";
 
 export default function Home() {
   const { data, isLoading } = useGetFeed();
@@ -12,11 +13,11 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-[100dvh]" data-testid="page-home">
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border px-4 py-3 flex items-center justify-between">
+      <header className="sticky top-0 z-40 premium-glass border-b border-white/8 px-4 py-3 flex items-center justify-between rounded-b-2xl">
         <NakudinLogo size="md" />
         <button
           onClick={toggleLang}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-1 rounded-lg border border-border hover:border-primary"
+          className="surface-2 interactive-card flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-all px-2.5 py-1.5 rounded-xl border border-white/10 hover:border-primary/50"
           aria-label="Toggle language"
         >
           <Globe size={13} />
@@ -25,7 +26,19 @@ export default function Home() {
       </header>
 
       <div className="p-4 flex-1">
-        <h2 className="text-base font-semibold text-muted-foreground mb-4">{t("forYou")}</h2>
+        <div className="flex items-center justify-between mb-4 gap-3">
+          <div>
+            <h1 className="text-lg font-bold text-foreground">{t("forYou")}</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">Browse products and contact sellers directly.</p>
+          </div>
+          <div className="shrink-0 flex items-center gap-2">
+            <Link href="/about" className="hidden xs:inline-flex rounded-full surface-2 border border-white/8 px-3 py-2 text-[11px] text-muted-foreground hover:text-primary hover:border-primary/40 transition-all">About</Link>
+            <Link href="/contact" className="inline-flex items-center gap-1.5 rounded-full surface-2 border border-white/8 px-3 py-2 text-[11px] text-muted-foreground hover:text-primary hover:border-primary/40 transition-all">
+              <MessageSquareText size={13} />
+              Contact
+            </Link>
+          </div>
+        </div>
 
         {isLoading ? (
           <div className="flex justify-center py-16">

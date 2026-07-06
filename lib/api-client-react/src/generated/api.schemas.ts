@@ -19,6 +19,7 @@ export interface FeedProduct {
   shopId: string;
   shopName: string;
   shopVerified: boolean;
+  shopPremium?: boolean;
   /** @nullable */
   shopLogoUrl?: string | null;
   /** @nullable */
@@ -37,6 +38,8 @@ export interface FeedProduct {
   trendScore?: number | null;
   /** @nullable */
   stockQuantity?: number | null;
+  /** @nullable */
+  featuredUntil?: string | null;
   createdAt: string;
 }
 
@@ -79,6 +82,8 @@ export interface Product {
   /** @nullable */
   trendScore?: number | null;
   stockQuantity?: number;
+  /** @nullable */
+  featuredUntil?: string | null;
   status: ProductStatus;
   isLiked?: boolean;
   createdAt: string;
@@ -90,7 +95,7 @@ export interface ProductInput {
   description?: string;
   /** @minimum 0 */
   price: number;
-  /** @maxItems 6 */
+  /** @maxItems 5 */
   images: string[];
   category?: string;
   locationCity?: string;
@@ -114,13 +119,14 @@ export interface ProductUpdate {
   description?: string;
   /** @minimum 0 */
   price?: number;
-  /** @maxItems 6 */
+  /** @maxItems 5 */
   images?: string[];
   category?: string;
   status?: ProductUpdateStatus;
   locationCity?: string;
   locationState?: string;
   stockQuantity?: number;
+  featuredUntil?: string | null;
 }
 
 export interface ProductPage {
@@ -139,6 +145,13 @@ export const ShopSubscriptionStatus = {
   locked: 'locked',
 } as const;
 
+export type ShopBillingCycle = typeof ShopBillingCycle[keyof typeof ShopBillingCycle];
+
+export const ShopBillingCycle = {
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
 export interface Shop {
   id: string;
   businessName: string;
@@ -151,6 +164,11 @@ export interface Shop {
   coverUrl?: string | null;
   /** @nullable */
   whatsappNumber?: string | null;
+  instagramUrl?: string | null;
+  facebookUrl?: string | null;
+  xUrl?: string | null;
+  tiktokUrl?: string | null;
+  websiteUrl?: string | null;
   /** @nullable */
   locationCity?: string | null;
   /** @nullable */
@@ -171,6 +189,17 @@ export interface Shop {
   subscriptionStatus: ShopSubscriptionStatus;
   /** @nullable */
   trialEndsAt?: string | null;
+  /** @nullable */
+  nextBillingDate?: string | null;
+  billingCycle: ShopBillingCycle;
+  premiumStatus?: 'none' | 'active';
+  /** @nullable */
+  premiumUntil?: string | null;
+  /** @nullable */
+  customSlug?: string | null;
+  /** @nullable */
+  pinnedProductId?: string | null;
+  shopTheme?: 'classic' | 'editorial' | 'boutique' | 'catalog' | 'spotlight';
   isFollowed?: boolean;
   createdAt: string;
 }
@@ -183,6 +212,11 @@ export interface ShopInput {
   bio?: string;
   logoUrl?: string;
   coverUrl?: string;
+  instagramUrl?: string | null;
+  facebookUrl?: string | null;
+  xUrl?: string | null;
+  tiktokUrl?: string | null;
+  websiteUrl?: string | null;
   locationCity?: string;
   locationState?: string;
   locationLat?: number;
@@ -197,10 +231,18 @@ export interface ShopUpdate {
   bio?: string;
   logoUrl?: string;
   coverUrl?: string;
+  instagramUrl?: string | null;
+  facebookUrl?: string | null;
+  xUrl?: string | null;
+  tiktokUrl?: string | null;
+  websiteUrl?: string | null;
   locationCity?: string;
   locationState?: string;
   locationLat?: number;
   locationLng?: number;
+  customSlug?: string | null;
+  pinnedProductId?: string | null;
+  shopTheme?: 'classic' | 'editorial' | 'boutique' | 'catalog' | 'spotlight';
 }
 
 export interface ShopPage {
@@ -357,6 +399,9 @@ export interface ShopAnalytics {
   totalLikes: number;
   totalWhatsappClicks: number;
   followerCount: number;
+  premiumStatus?: 'none' | 'active';
+  trafficSources?: { source: string; value: number }[];
+  timeOfDayEngagement?: { slot: string; value: number }[];
   recentActivity: ActivityPoint[];
   topProducts?: ProductStat[];
 }
@@ -385,6 +430,15 @@ export type AdminStatsSubscriptionBreakdown = {
   locked: number;
 };
 
+export type AdminStatsBillingBreakdown = {
+  monthly: number;
+  yearly: number;
+  premium?: number;
+  monthlyRevenue: number;
+  yearlyRevenue: number;
+  premiumRevenue?: number;
+};
+
 export interface AdminStats {
   totalShops: number;
   totalProducts: number;
@@ -394,6 +448,7 @@ export interface AdminStats {
   whatsappClicksToday?: number;
   newSignupsThisWeek?: number;
   subscriptionBreakdown: AdminStatsSubscriptionBreakdown;
+  billingBreakdown?: AdminStatsBillingBreakdown;
 }
 
 export interface AdminShopPage {
@@ -511,6 +566,10 @@ cursor?: string | null;
  * @nullable
  */
 status?: string | null;
+/**
+ * @nullable
+ */
+premium?: string | null;
 /**
  * @nullable
  */

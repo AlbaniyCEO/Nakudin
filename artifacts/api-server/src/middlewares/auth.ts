@@ -12,7 +12,7 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 
   try {
     // Verify Firebase ID token by calling Firebase REST API
-    const verifyUrl = `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY}`;
+    const verifyUrl = `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY || process.env.GOOGLE_API_KEY}`;
     const response = await fetch(verifyUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

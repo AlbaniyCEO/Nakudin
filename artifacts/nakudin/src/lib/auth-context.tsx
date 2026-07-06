@@ -5,6 +5,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
     GoogleAuthProvider, signOut, sendEmailVerification, type User,
   } from 'firebase/auth';
   import { auth } from './firebase';
+  import { setAuthTokenGetter } from '@workspace/api-client-react';
 
   const googleProvider = new GoogleAuthProvider();
 
@@ -25,8 +26,12 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+      setAuthTokenGetter(() => auth.currentUser?.getIdToken() ?? null);
       const unsub = onAuthStateChanged(auth, (u) => { setUser(u); setLoading(false); });
-      return unsub;
+      return () => {
+        unsub();
+        setAuthTokenGetter(null);
+      };
     }, []);
 
     const signIn = async (email: string, password: string) => {

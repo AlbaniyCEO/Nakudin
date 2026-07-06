@@ -7,6 +7,10 @@ export const productStatusEnum = pgEnum("product_status", ["active", "hidden", "
 export const reportStatusEnum = pgEnum("report_status", ["open", "reviewed", "dismissed"]);
 export const reportTargetEnum = pgEnum("report_target_type", ["shop", "product"]);
 
+export const billingCycleEnum = pgEnum("billing_cycle", ["monthly", "yearly"]);
+
+export const premiumStatusEnum = pgEnum("premium_status", ["none", "active"]);
+
 export const shopsTable = pgTable("shops", {
   id: text("id").primaryKey(),
   businessName: text("business_name").notNull(),
@@ -16,6 +20,11 @@ export const shopsTable = pgTable("shops", {
   logoUrl: text("logo_url"),
   coverUrl: text("cover_url"),
   whatsappNumber: text("whatsapp_number"),
+  instagramUrl: text("instagram_url"),
+  facebookUrl: text("facebook_url"),
+  xUrl: text("x_url"),
+  tiktokUrl: text("tiktok_url"),
+  websiteUrl: text("website_url"),
   locationCity: text("location_city"),
   locationState: text("location_state"),
   locationLat: real("location_lat"),
@@ -32,11 +41,18 @@ export const shopsTable = pgTable("shops", {
   subscriptionStatus: subscriptionStatusEnum("subscription_status").notNull().default("trial"),
   trialEndsAt: timestamp("trial_ends_at"),
   nextBillingDate: timestamp("next_billing_date"),
+  billingCycle: billingCycleEnum("billing_cycle").notNull().default("monthly"),
+  premiumStatus: premiumStatusEnum("premium_status").notNull().default("none"),
+  premiumUntil: timestamp("premium_until"),
+  customSlug: text("custom_slug"),
+  pinnedProductId: text("pinned_product_id"),
+  shopTheme: text("shop_theme").notNull().default("classic"),
   suspended: boolean("suspended").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 },
   (table) => [
     uniqueIndex("shops_business_name_lower_unique").on(table.businessNameLower),
+    uniqueIndex("shops_custom_slug_unique").on(table.customSlug),
   ]);
 
 export const productsTable = pgTable("products", {
@@ -56,6 +72,7 @@ export const productsTable = pgTable("products", {
   whatsappClickCount: integer("whatsapp_click_count").notNull().default(0),
   trendScore: real("trend_score").notNull().default(0),
   stockQuantity: integer("stock_quantity").notNull().default(1),
+  featuredUntil: timestamp("featured_until"),
   status: productStatusEnum("status").notNull().default("active"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -64,6 +81,15 @@ export const stockWatchersTable = pgTable("stock_watchers", {
   id: text("id").primaryKey(),
   productId: text("product_id").notNull().references(() => productsTable.id, { onDelete: "cascade" }),
   userId: text("user_id").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+
+export const pushTokensTable = pgTable("push_tokens", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  token: text("token").notNull(),
+  platform: text("platform").notNull().default("web"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -126,6 +152,7 @@ export const reportsTable = pgTable("reports", {
 export const insertShopSchema = createInsertSchema(shopsTable).omit({ createdAt: true });
 export const insertProductSchema = createInsertSchema(productsTable).omit({ createdAt: true });
 export const insertLikeSchema = createInsertSchema(likesTable).omit({ createdAt: true });
+export const insertPushTokenSchema = createInsertSchema(pushTokensTable).omit({ createdAt: true });
 export const insertFollowSchema = createInsertSchema(followsTable).omit({ createdAt: true });
 export const insertCommentSchema = createInsertSchema(commentsTable).omit({ createdAt: true });
 export const insertReviewSchema = createInsertSchema(reviewsTable).omit({ createdAt: true });
@@ -135,6 +162,7 @@ export type Shop = typeof shopsTable.$inferSelect;
 export type InsertShop = z.infer<typeof insertShopSchema>;
 export type Product = typeof productsTable.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
+export type PushToken = typeof pushTokensTable.$inferSelect;
 export type Like = typeof likesTable.$inferSelect;
 export type Follow = typeof followsTable.$inferSelect;
 export type Comment = typeof commentsTable.$inferSelect;

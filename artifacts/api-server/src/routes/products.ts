@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { productsTable, shopsTable, likesTable, commentsTable, whatsappClicksTable, stockWatchersTable } from "@workspace/db";
-import { desc, eq, and, sql } from "drizzle-orm";
+import { productsTable, shopsTable, likesTable, commentsTable, whatsappClicksTable, stockWatchersTable, pushTokensTable } from "@workspace/db";
+import { desc, eq, and, sql, inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
+import { sendPushToTokens } from "../lib/push";
 import { CreateProductBody, UpdateProductBody, CreateCommentBody, LogWhatsappClickBody } from "@workspace/api-zod";
 
 const router = Router();
@@ -25,6 +26,7 @@ function serializeProduct(p: typeof productsTable.$inferSelect, isLiked = false)
     whatsappClickCount: p.whatsappClickCount,
     trendScore: p.trendScore,
     stockQuantity: p.stockQuantity,
+    featuredUntil: p.featuredUntil?.toISOString() || null,
     status: p.status,
     isLiked,
     createdAt: p.createdAt.toISOString(),
@@ -80,9 +82,10 @@ router.post("/products", async (req, res) => {
   try {
     const shop = await db.select().from(shopsTable).where(eq(shopsTable.id, userId)).limit(1);
     if (!shop.length) return res.status(404).json({ error: "Shop not found" });
-    if (shop[0].subscriptionStatus === "locked") return res.status(403).json({ error: "Shop is locked. Please renew your subscription." });
-
     const id = randomUUID();
+    const maxImages = 5;
+    if ((parsed.data.images || []).length > maxImages) return res.status(400).json({ error: `Products can upload up to 5 images.` });
+
     const [product] = await db.insert(productsTable).values({
       id,
       shopId: userId,
@@ -139,6 +142,14 @@ router.patch("/products/:productId", async (req, res) => {
     if (!existing) return res.status(404).json({ error: "Not found" });
     if (existing.shopId !== userId) return res.status(403).json({ error: "Forbidden" });
 
+    const [shop] = await db.select().from(shopsTable).where(eq(shopsTable.id, userId)).limit(1);
+    if (!shop) return res.status(404).json({ error: "Shop not found" });
+
+    const maxImages = 5;
+    if (parsed.data.images && parsed.data.images.length > maxImages) {
+      return res.status(400).json({ error: `Products can upload up to 5 images.` });
+    }
+
     const prevStock = existing.stockQuantity;
     const newStock = parsed.data.stockQuantity;
 
@@ -148,6 +159,7 @@ router.patch("/products/:productId", async (req, res) => {
         ...(parsed.data.description !== undefined && { description: parsed.data.description }),
         ...(parsed.data.price !== undefined && { price: parsed.data.price }),
         ...(parsed.data.images && { images: parsed.data.images }),
+        ...(parsed.data.featuredUntil !== undefined && { featuredUntil: parsed.data.featuredUntil ? new Date(parsed.data.featuredUntil as any) : null }),
         ...(parsed.data.category !== undefined && { category: parsed.data.category }),
         ...(parsed.data.status && { status: parsed.data.status as any }),
         ...(parsed.data.locationCity !== undefined && { locationCity: parsed.data.locationCity }),
@@ -157,9 +169,25 @@ router.patch("/products/:productId", async (req, res) => {
       .where(eq(productsTable.id, req.params.productId))
       .returning();
 
-    // If restocked from 0: clear watchers (FCM push can be added here)
+    // If restocked from 0: notify watchers, then clear them
     if (newStock !== undefined && newStock > 0 && prevStock === 0) {
-      req.log.info({ productId: product.id, prevStock, newStock }, "Product restocked — clearing watchers");
+      const watchers = await db.select({ userId: stockWatchersTable.userId }).from(stockWatchersTable).where(eq(stockWatchersTable.productId, product.id));
+      const watcherIds = watchers.map(w => w.userId);
+
+      if (watcherIds.length) {
+        const tokenRows = await db
+          .select({ token: pushTokensTable.token })
+          .from(pushTokensTable)
+          .where(inArray(pushTokensTable.userId, watcherIds));
+        const tokens = [...new Set(tokenRows.map(t => t.token).filter(Boolean))];
+        await sendPushToTokens(tokens, {
+          title: `${product.title} is back in stock`,
+          body: `A product you asked about is available again on Nakudin.`,
+          url: `/products/${product.id}`,
+        }, req.log);
+      }
+
+      req.log.info({ productId: product.id, prevStock, newStock, watcherCount: watcherIds.length }, "Product restocked — notified watchers and clearing subscriptions");
       await db.delete(stockWatchersTable).where(eq(stockWatchersTable.productId, product.id));
     }
 
@@ -354,12 +382,32 @@ router.get("/products/:productId/related", async (req, res) => {
       likeCount: p.likeCount, viewCount: p.viewCount,
       shopId: shop.id, shopName: shop.businessName, shopVerified: shop.verified,
       shopLogoUrl: shop.logoUrl, shopWhatsapp: shop.whatsappNumber,
+      shopPremium: shop.premiumStatus === "active",
       category: p.category, locationCity: p.locationCity || shop.locationCity,
       locationState: p.locationState || shop.locationState,
       stockQuantity: p.stockQuantity,
+      featuredUntil: p.featuredUntil?.toISOString() || null,
       distanceKm: null, isLiked: false, isFollowed: false,
       trendScore: p.trendScore, createdAt: p.createdAt.toISOString(),
     })));
+  } catch (err) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+
+router.post("/push/register", async (req, res) => {
+  const userId = (req as any).userId;
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  const token = typeof req.body?.token === "string" ? req.body.token.trim() : "";
+  if (!token) return res.status(400).json({ error: "Token is required" });
+
+  try {
+    const existing = await db.select().from(pushTokensTable).where(and(eq(pushTokensTable.userId, userId), eq(pushTokensTable.token, token))).limit(1);
+    if (!existing.length) {
+      await db.insert(pushTokensTable).values({ id: randomUUID(), userId, token, platform: "web" });
+    }
+    res.json({ registered: true });
   } catch (err) {
     res.status(500).json({ error: "Internal server error" });
   }

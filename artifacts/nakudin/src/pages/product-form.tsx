@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageUpload } from "@/components/ImageUpload";
-import { ChevronLeft, Loader2, X } from "lucide-react";
+import { AlertTriangle, ChevronLeft, Loader2, Sparkles, X } from "lucide-react";
+import { getProductQualityHints, suggestCategory } from "@/lib/smart-discovery";
 
 const CATEGORIES = [
   "Fashion & Clothing","Electronics & Gadgets","Phones & Accessories","Home & Furniture",
@@ -23,7 +24,6 @@ const CATEGORIES = [
 export default function ProductForm() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
-  const [, newParams] = useRoute("/dashboard/product/new");
   const [, editParams] = useRoute<{ id: string }>("/dashboard/product/:id/edit");
   const editId = editParams?.id;
   const isEditing = !!editId;
@@ -43,6 +43,9 @@ export default function ProductForm() {
   const [state, setState] = useState("");
   const [stockQuantity, setStockQuantity] = useState(1);
   const [error, setError] = useState("");
+  const imageLimit = 5;
+  const categorySuggestion = suggestCategory(title, description);
+  const quality = getProductQualityHints({ title, description, price: parseFloat(price), images, category });
 
   useEffect(() => {
     if (existing) {
@@ -58,7 +61,7 @@ export default function ProductForm() {
   }, [existing]);
 
   const addImage = (url: string) => {
-    if (images.length < 6) setImages(prev => [...prev, url]);
+    if (images.length < imageLimit) setImages(prev => [...prev, url]);
   };
 
   const removeImage = (idx: number) => {
@@ -74,6 +77,8 @@ export default function ProductForm() {
     const priceNum = parseFloat(price);
     if (isNaN(priceNum) || priceNum < 0) { setError("Invalid price"); return; }
 
+    if (!shop && !isEditing) { setError("Create your shop before listing a product."); return; }
+
     try {
       if (isEditing && editId) {
         await updateProduct.mutateAsync({
@@ -83,7 +88,7 @@ export default function ProductForm() {
         queryClient.invalidateQueries({ queryKey: getGetProductQueryKey(editId) });
       } else {
         await createProduct.mutateAsync({
-          data: { title: title.trim(), price: priceNum, description: description || undefined, category: category || undefined, images, locationCity: city || shop?.locationCity || undefined, locationState: state || shop?.locationState || undefined, stockQuantity },
+          data: { shopId: shop!.id, title: title.trim(), price: priceNum, description: description || undefined, category: category || undefined, images, locationCity: city || shop?.locationCity || undefined, locationState: state || shop?.locationState || undefined, stockQuantity },
         });
       }
       queryClient.invalidateQueries({ queryKey: getListProductsQueryKey({ shopId: shop?.id }) });
@@ -109,10 +114,10 @@ export default function ProductForm() {
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Images */}
         <div>
-          <Label className="mb-2 block">Images (up to 6) *</Label>
+          <Label className="mb-2 block">Images (up to {imageLimit}) *</Label>
           <div className="flex flex-wrap gap-2">
             {images.map((url, i) => (
-              <div key={i} className="relative w-20 h-20 rounded-lg overflow-hidden bg-muted">
+              <div key={i} className="relative w-20 h-20 rounded-lg overflow-hidden surface-2">
                 <img src={url} alt={`Product ${i+1}`} className="w-full h-full object-cover" />
                 <button
                   type="button"
@@ -123,7 +128,7 @@ export default function ProductForm() {
                 </button>
               </div>
             ))}
-            {images.length < 6 && (
+            {images.length < imageLimit && (
               <div className="w-20 h-20"><ImageUpload label="Add" onChange={addImage} aspect="square" /></div>
             )}
           </div>
@@ -159,13 +164,13 @@ export default function ProductForm() {
         </div>
 
         <div>
-          <Label htmlFor="stock">Stock Quantity</Label>
+          <Label htmlFor="stock">How many do you have?</Label>
           <p className="text-xs text-muted-foreground mt-0.5 mb-1">How many units do you have available? (0 = sold out)</p>
           <div className="flex items-center gap-2 mt-1">
             <button
               type="button"
               onClick={() => setStockQuantity(q => Math.max(0, q - 1))}
-              className="w-8 h-8 rounded-lg border border-input bg-background flex items-center justify-center text-foreground hover:bg-muted transition-colors font-bold"
+              className="w-8 h-8 rounded-lg border border-input surface-2 flex items-center justify-center text-foreground hover:border-primary/40 transition-colors font-bold"
             >−</button>
             <Input
               id="stock"
@@ -179,11 +184,11 @@ export default function ProductForm() {
             <button
               type="button"
               onClick={() => setStockQuantity(q => q + 1)}
-              className="w-8 h-8 rounded-lg border border-input bg-background flex items-center justify-center text-foreground hover:bg-muted transition-colors font-bold"
+              className="w-8 h-8 rounded-lg border border-input surface-2 flex items-center justify-center text-foreground hover:border-primary/40 transition-colors font-bold"
             >+</button>
           </div>
           {stockQuantity === 0 && (
-            <p className="text-xs text-amber-500 mt-1">This product will be marked as sold out and hidden from the main feed.</p>
+            <p className="text-xs text-amber-500 mt-1">This product will be marked as out of stock but will remain visible to visitors.</p>
           )}
         </div>
 
@@ -200,13 +205,43 @@ export default function ProductForm() {
           />
         </div>
 
+
+        {(categorySuggestion || quality.hints.length > 0 || quality.risk.length > 0) && (
+          <div className="surface-1 rounded-2xl p-4 space-y-3 border border-primary/15">
+            <div className="flex items-center gap-2">
+              <Sparkles size={16} className="text-primary" />
+              <p className="text-sm font-semibold text-foreground">Smart listing assistant</p>
+            </div>
+            {categorySuggestion && categorySuggestion.category !== category && (
+              <div className="flex items-center justify-between gap-3 surface-2 rounded-xl p-3">
+                <div>
+                  <p className="text-xs text-muted-foreground">Suggested category</p>
+                  <p className="text-sm font-semibold text-foreground">{categorySuggestion.category}</p>
+                </div>
+                <Button type="button" size="sm" variant="outline" onClick={() => setCategory(categorySuggestion.category)}>Apply</Button>
+              </div>
+            )}
+            {quality.hints.length > 0 && (
+              <ul className="space-y-1">
+                {quality.hints.slice(0, 3).map(hint => <li key={hint} className="text-xs text-muted-foreground">• {hint}</li>)}
+              </ul>
+            )}
+            {quality.risk.length > 0 && (
+              <div className="flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 p-3">
+                <AlertTriangle size={14} className="text-amber-500 mt-0.5" />
+                <p className="text-xs text-amber-400">{quality.risk.join(", ")}. Admin may review this listing.</p>
+              </div>
+            )}
+          </div>
+        )}
+
         <div>
           <Label htmlFor="category">Category</Label>
           <select
             id="category"
             value={category}
             onChange={e => setCategory(e.target.value)}
-            className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            className="mt-1 w-full rounded-md border border-input surface-2 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             data-testid="select-category"
           >
             <option value="">Select a category</option>

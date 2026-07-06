@@ -1,5 +1,5 @@
 import { useState } from "react";
-  import { useLocation } from "wouter";
+  import { Link, useLocation } from "wouter";
   import { useAuth } from "@/lib/auth-context";
   import { Button } from "@/components/ui/button";
   import { Input } from "@/components/ui/input";
@@ -70,7 +70,7 @@ import { useState } from "react";
           <div className="mb-8">
             <NakudinLogo size="lg" />
           </div>
-          <div className="bg-card border border-border rounded-2xl p-8 space-y-5">
+          <div className="surface-1 rounded-2xl p-8 space-y-5">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
               <Mail size={32} className="text-primary" />
             </div>
@@ -121,8 +121,8 @@ import { useState } from "react";
         </form>
 
         <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border" /></div>
-          <div className="relative flex justify-center text-xs"><span className="bg-background px-2 text-muted-foreground">or</span></div>
+          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
+          <div className="relative flex justify-center text-xs"><span className="bg-[var(--surface-0)] px-2 text-muted-foreground">or</span></div>
         </div>
 
         <Button variant="outline" onClick={handleGoogle} disabled={loading} className="w-full" data-testid="button-google">
@@ -132,6 +132,10 @@ import { useState } from "react";
         <p className="text-center text-sm text-muted-foreground mt-6">
           Already have an account?{" "}
           <a href="/login" className="text-primary font-medium hover:underline">Sign in</a>
+        </p>
+        <p className="text-center text-xs text-muted-foreground mt-3">
+          Questions before opening an account?{" "}
+          <Link href="/feedback" className="text-primary font-medium hover:underline">Message Admin as a visitor</Link>
         </p>
       </div>
     );

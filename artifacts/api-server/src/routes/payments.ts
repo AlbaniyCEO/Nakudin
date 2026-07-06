@@ -6,7 +6,8 @@ import { eq } from "drizzle-orm";
 
 const router = Router();
 
-const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY ?? "";
+const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY || process.env.PICATIC_API_KEY || "";
+const PREMIUM_MONTHS = 1;
 
 // POST /api/payments/webhook  — called by Paystack after a successful charge
 router.post("/payments/webhook", async (req, res) => {
@@ -30,24 +31,31 @@ router.post("/payments/webhook", async (req, res) => {
     const event = req.body as { event: string; data: any };
 
     if (event.event === "charge.success") {
-      const { metadata } = event.data as { metadata?: { shopId?: string; plan?: string } };
+      const { metadata } = event.data as { metadata?: { shopId?: string; plan?: string; premium?: boolean; featureDays?: number } };
       const shopId = metadata?.shopId;
       const plan = metadata?.plan ?? "monthly";
 
       if (shopId) {
-        const nextBillingDate = new Date();
-        if (plan === "yearly") {
-          nextBillingDate.setFullYear(nextBillingDate.getFullYear() + 1);
+        if (metadata?.premium) {
+          const premiumUntil = new Date();
+          premiumUntil.setMonth(premiumUntil.getMonth() + PREMIUM_MONTHS);
+          await db.update(shopsTable).set({ premiumStatus: "active", premiumUntil }).where(eq(shopsTable.id, shopId));
+          req.log.info({ shopId }, "Premium activated via Paystack");
         } else {
-          nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
+          const nextBillingDate = new Date();
+          if (plan === "yearly") {
+            nextBillingDate.setFullYear(nextBillingDate.getFullYear() + 1);
+          } else {
+            nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
+          }
+
+          await db
+            .update(shopsTable)
+            .set({ subscriptionStatus: "active", nextBillingDate, billingCycle: plan === "yearly" ? "yearly" : "monthly" })
+            .where(eq(shopsTable.id, shopId));
+
+          req.log.info({ shopId, plan }, "Subscription activated via Paystack");
         }
-
-        await db
-          .update(shopsTable)
-          .set({ subscriptionStatus: "active", nextBillingDate })
-          .where(eq(shopsTable.id, shopId));
-
-        req.log.info({ shopId, plan }, "Subscription activated via Paystack");
       }
     }
 
@@ -75,6 +83,13 @@ router.get("/payments/plans", (_req, res) => {
         amountKobo: 900000,
         currency: "NGN",
         label: "₦9,000/year",
+      },
+      {
+        id: "premium",
+        name: "Premium",
+        amountKobo: 300000,
+        currency: "NGN",
+        label: "₦3,000/month",
       },
     ],
   });

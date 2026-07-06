@@ -27,13 +27,16 @@ router.get("/admin/stats", async (req, res) => {
     const [activeCount] = await db.select({ count: count() }).from(shopsTable).where(eq(shopsTable.subscriptionStatus, "active"));
     const [graceCount] = await db.select({ count: count() }).from(shopsTable).where(eq(shopsTable.subscriptionStatus, "grace"));
     const [lockedCount] = await db.select({ count: count() }).from(shopsTable).where(eq(shopsTable.subscriptionStatus, "locked"));
+    const [monthlyCount] = await db.select({ count: count() }).from(shopsTable).where(eq(shopsTable.billingCycle, "monthly"));
+    const [yearlyCount] = await db.select({ count: count() }).from(shopsTable).where(eq(shopsTable.billingCycle, "yearly"));
+    const [premiumCount] = await db.select({ count: count() }).from(shopsTable).where(eq(shopsTable.premiumStatus, "active"));
 
     res.json({
       totalShops: Number(shopCount.count),
       totalProducts: Number(productCount.count),
       totalUsers: Number(shopCount.count),
       totalReports: Number(reportCount.count),
-      revenueThisMonth: Number(activeCount.count) * 1000,
+      revenueThisMonth: Number(monthlyCount.count) * 1000 + Number(yearlyCount.count) * 9000,
       whatsappClicksToday: Math.floor(Math.random() * 50) + 10,
       newSignupsThisWeek: Math.floor(Math.random() * 20) + 5,
       subscriptionBreakdown: {
@@ -41,6 +44,14 @@ router.get("/admin/stats", async (req, res) => {
         active: Number(activeCount.count),
         grace: Number(graceCount.count),
         locked: Number(lockedCount.count),
+      },
+      billingBreakdown: {
+        monthly: Number(monthlyCount.count),
+        yearly: Number(yearlyCount.count),
+        premium: Number(premiumCount.count),
+        monthlyRevenue: Number(monthlyCount.count) * 1000,
+        yearlyRevenue: Number(yearlyCount.count) * 9000,
+        premiumRevenue: Number(premiumCount.count) * 3000,
       },
     });
   } catch (err) {
@@ -53,14 +64,16 @@ router.get("/admin/shops", async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 30, 100);
     const status = req.query.status as string | undefined;
+    const premium = req.query.premium as string | undefined;
     const q = req.query.q as string | undefined;
 
     const shops = await db.select().from(shopsTable)
       .where(and(
         status ? eq(shopsTable.subscriptionStatus, status as any) : undefined,
+        premium === "active" ? eq(shopsTable.premiumStatus, "active") : undefined,
         q ? ilike(shopsTable.businessName, `%${q}%`) : undefined,
       ))
-      .orderBy(desc(shopsTable.createdAt))
+      .orderBy(desc(shopsTable.premiumStatus), desc(shopsTable.createdAt))
       .limit(limit + 1);
 
     const hasMore = shops.length > limit;
@@ -69,13 +82,13 @@ router.get("/admin/shops", async (req, res) => {
     res.json({
       shops: items.map(s => ({
         id: s.id, businessName: s.businessName, bio: s.bio, category: s.category,
-        logoUrl: s.logoUrl, coverUrl: s.coverUrl, whatsappNumber: s.whatsappNumber,
+        logoUrl: s.logoUrl, coverUrl: s.coverUrl, whatsappNumber: s.whatsappNumber, instagramUrl: (s as any).instagramUrl, facebookUrl: (s as any).facebookUrl, xUrl: (s as any).xUrl, tiktokUrl: (s as any).tiktokUrl, websiteUrl: (s as any).websiteUrl,
         locationCity: s.locationCity, locationState: s.locationState,
         locationLat: s.locationLat, locationLng: s.locationLng,
         verified: s.verified, followerCount: s.followerCount, followingCount: s.followingCount,
         totalViews: s.totalViews, totalLikes: s.totalLikes, totalWhatsappClicks: s.totalWhatsappClicks,
         avgRating: s.avgRating, reviewCount: s.reviewCount,
-        subscriptionStatus: s.subscriptionStatus, trialEndsAt: s.trialEndsAt?.toISOString() || null,
+        subscriptionStatus: s.subscriptionStatus, trialEndsAt: s.trialEndsAt?.toISOString() || null, billingCycle: s.billingCycle, nextBillingDate: s.nextBillingDate?.toISOString() || null, premiumStatus: s.premiumStatus, premiumUntil: s.premiumUntil?.toISOString?.() || null, customSlug: s.customSlug, pinnedProductId: s.pinnedProductId, shopTheme: (s as any).shopTheme || "classic",
         isFollowed: false, createdAt: s.createdAt.toISOString(),
       })),
       nextCursor: hasMore ? items[items.length - 1].id : null,
@@ -100,13 +113,13 @@ router.patch("/admin/shops/:shopId", async (req, res) => {
 
     res.json({
       id: shop.id, businessName: shop.businessName, bio: shop.bio, category: shop.category,
-      logoUrl: shop.logoUrl, coverUrl: shop.coverUrl, whatsappNumber: shop.whatsappNumber,
+      logoUrl: shop.logoUrl, coverUrl: shop.coverUrl, whatsappNumber: shop.whatsappNumber, instagramUrl: (shop as any).instagramUrl, facebookUrl: (shop as any).facebookUrl, xUrl: (shop as any).xUrl, tiktokUrl: (shop as any).tiktokUrl, websiteUrl: (shop as any).websiteUrl,
       locationCity: shop.locationCity, locationState: shop.locationState,
       locationLat: shop.locationLat, locationLng: shop.locationLng,
       verified: shop.verified, followerCount: shop.followerCount, followingCount: shop.followingCount,
       totalViews: shop.totalViews, totalLikes: shop.totalLikes, totalWhatsappClicks: shop.totalWhatsappClicks,
       avgRating: shop.avgRating, reviewCount: shop.reviewCount,
-      subscriptionStatus: shop.subscriptionStatus, trialEndsAt: shop.trialEndsAt?.toISOString() || null,
+      subscriptionStatus: shop.subscriptionStatus, trialEndsAt: shop.trialEndsAt?.toISOString() || null, billingCycle: shop.billingCycle, nextBillingDate: shop.nextBillingDate?.toISOString() || null, premiumStatus: shop.premiumStatus, premiumUntil: shop.premiumUntil?.toISOString?.() || null, customSlug: shop.customSlug, pinnedProductId: shop.pinnedProductId, shopTheme: (shop as any).shopTheme || "classic",
       isFollowed: false, createdAt: shop.createdAt.toISOString(),
     });
   } catch (err) {
@@ -143,7 +156,8 @@ router.get("/admin/products", async (req, res) => {
         locationCity: p.locationCity, locationState: p.locationState,
         locationLat: p.locationLat, locationLng: p.locationLng,
         likeCount: p.likeCount, viewCount: p.viewCount, whatsappClickCount: p.whatsappClickCount,
-        trendScore: p.trendScore, status: p.status, isLiked: false,
+        trendScore: p.trendScore, stockQuantity: p.stockQuantity, featuredUntil: p.featuredUntil?.toISOString() || null,
+        status: p.status, isLiked: false,
         createdAt: p.createdAt.toISOString(),
       })),
       nextCursor: hasMore ? items[items.length - 1].id : null,

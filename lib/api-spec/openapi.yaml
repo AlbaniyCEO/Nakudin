@@ -749,6 +749,7 @@ components:
         shopId: { type: string }
         shopName: { type: string }
         shopVerified: { type: boolean }
+        shopPremium: { type: boolean }
         shopLogoUrl: { type: ["string", "null"] }
         shopWhatsapp: { type: ["string", "null"] }
         category: { type: ["string", "null"] }
@@ -758,6 +759,8 @@ components:
         isLiked: { type: boolean }
         isFollowed: { type: boolean }
         trendScore: { type: ["number", "null"] }
+        stockQuantity: { type: ["integer", "null"] }
+        featuredUntil: { type: ["string", "null"] }
         createdAt: { type: string }
 
     FeedPage:
@@ -789,6 +792,8 @@ components:
         viewCount: { type: integer }
         whatsappClickCount: { type: integer }
         trendScore: { type: ["number", "null"] }
+        stockQuantity: { type: integer }
+        featuredUntil: { type: ["string", "null"] }
         status: { type: string, enum: [active, hidden, deleted] }
         isLiked: { type: boolean }
         createdAt: { type: string }
@@ -800,12 +805,13 @@ components:
         title: { type: string, minLength: 1 }
         description: { type: string }
         price: { type: number, minimum: 0 }
-        images: { type: array, items: { type: string }, maxItems: 6 }
+        images: { type: array, items: { type: string }, maxItems: 5 }
         category: { type: string }
         locationCity: { type: string }
         locationState: { type: string }
         locationLat: { type: number }
         locationLng: { type: number }
+        stockQuantity: { type: integer, minimum: 0 }
 
     ProductUpdate:
       type: object
@@ -813,11 +819,13 @@ components:
         title: { type: string, minLength: 1 }
         description: { type: string }
         price: { type: number, minimum: 0 }
-        images: { type: array, items: { type: string }, maxItems: 6 }
+        images: { type: array, items: { type: string }, maxItems: 5 }
         category: { type: string }
         status: { type: string, enum: [active, hidden] }
         locationCity: { type: string }
         locationState: { type: string }
+        stockQuantity: { type: integer, minimum: 0 }
+        featuredUntil: { type: ["string", "null"], format: date-time }
 
     ProductPage:
       type: object
@@ -854,6 +862,13 @@ components:
         reviewCount: { type: integer }
         subscriptionStatus: { type: string, enum: [trial, active, grace, locked] }
         trialEndsAt: { type: ["string", "null"] }
+        nextBillingDate: { type: ["string", "null"] }
+        billingCycle: { type: string, enum: [monthly, yearly] }
+        premiumStatus: { type: string, enum: [none, active] }
+        premiumUntil: { type: ["string", "null"] }
+        customSlug: { type: ["string", "null"] }
+        pinnedProductId: { type: ["string", "null"] }
+        shopTheme: { type: string, enum: [classic, editorial, boutique, catalog, spotlight] }
         isFollowed: { type: boolean }
         createdAt: { type: string }
 
@@ -885,6 +900,9 @@ components:
         locationState: { type: string }
         locationLat: { type: number }
         locationLng: { type: number }
+        customSlug: { type: ["string", "null"] }
+        pinnedProductId: { type: ["string", "null"] }
+        shopTheme: { type: string, enum: [classic, editorial, boutique, catalog, spotlight] }
 
     ShopPage:
       type: object

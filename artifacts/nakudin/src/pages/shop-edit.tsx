@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageUpload } from "@/components/ImageUpload";
-import { ChevronLeft, Loader2 } from "lucide-react";
+import { ChevronLeft, Loader2, CheckCircle2 } from "lucide-react";
+import { SHOP_THEMES, type ShopTheme } from "@/lib/shop-themes";
 
 const CATEGORIES = [
   "Fashion & Clothing","Electronics & Gadgets","Phones & Accessories","Home & Furniture",
@@ -32,6 +33,13 @@ export default function ShopEdit() {
   const [coverUrl, setCoverUrl] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
+  const [customSlug, setCustomSlug] = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [facebookUrl, setFacebookUrl] = useState("");
+  const [xUrl, setXUrl] = useState("");
+  const [tiktokUrl, setTiktokUrl] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [shopTheme, setShopTheme] = useState<ShopTheme>("classic");
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
 
@@ -45,6 +53,13 @@ export default function ShopEdit() {
       setCoverUrl(shop.coverUrl ?? "");
       setCity(shop.locationCity ?? "");
       setState(shop.locationState ?? "");
+      setCustomSlug(shop.customSlug ?? "");
+      setInstagramUrl(shop.instagramUrl ?? "");
+      setFacebookUrl(shop.facebookUrl ?? "");
+      setXUrl(shop.xUrl ?? "");
+      setTiktokUrl(shop.tiktokUrl ?? "");
+      setWebsiteUrl(shop.websiteUrl ?? "");
+      setShopTheme((shop.shopTheme ?? "classic") as ShopTheme);
     }
   }, [shop]);
 
@@ -53,16 +68,21 @@ export default function ShopEdit() {
     setError(""); setSaved(false);
     try {
       await updateMyShop.mutateAsync({
-        data: {
-          businessName: name.trim(),
-          whatsappNumber: whatsapp.trim(),
-          category,
-          bio: bio || undefined,
-          logoUrl: logoUrl || undefined,
-          coverUrl: coverUrl || undefined,
-          locationCity: city || undefined,
-          locationState: state || undefined,
-        },
+        businessName: name.trim(),
+        whatsappNumber: whatsapp.trim(),
+        category,
+        bio: bio || undefined,
+        logoUrl: logoUrl || undefined,
+        coverUrl: coverUrl || undefined,
+        locationCity: city || undefined,
+        locationState: state || undefined,
+        customSlug: customSlug.trim() || null,
+        instagramUrl: instagramUrl.trim() || null,
+        facebookUrl: facebookUrl.trim() || null,
+        xUrl: xUrl.trim() || null,
+        tiktokUrl: tiktokUrl.trim() || null,
+        websiteUrl: websiteUrl.trim() || null,
+        shopTheme,
       });
       queryClient.invalidateQueries({ queryKey: getGetMyShopQueryKey() });
       setSaved(true);
@@ -108,7 +128,7 @@ export default function ShopEdit() {
             id="category"
             value={category}
             onChange={e => setCategory(e.target.value)}
-            className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            className="mt-1 w-full rounded-md border border-input surface-2 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           >
             {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
@@ -117,6 +137,52 @@ export default function ShopEdit() {
         <div>
           <Label htmlFor="bio">Bio</Label>
           <Textarea id="bio" value={bio} onChange={e => setBio(e.target.value)} rows={3} className="mt-1 resize-none" data-testid="input-bio" />
+        </div>
+
+
+
+        <div className="surface-1 rounded-2xl p-4 space-y-3">
+          <div>
+            <Label>Social handles</Label>
+            <p className="text-xs text-muted-foreground mt-0.5">Connect your public social pages so buyers can trust and follow your brand.</p>
+          </div>
+          <Input value={instagramUrl} onChange={e => setInstagramUrl(e.target.value)} placeholder="Instagram URL or handle" />
+          <Input value={facebookUrl} onChange={e => setFacebookUrl(e.target.value)} placeholder="Facebook page URL" />
+          <Input value={xUrl} onChange={e => setXUrl(e.target.value)} placeholder="X / Twitter URL or handle" />
+          <Input value={tiktokUrl} onChange={e => setTiktokUrl(e.target.value)} placeholder="TikTok URL or handle" />
+          <Input value={websiteUrl} onChange={e => setWebsiteUrl(e.target.value)} placeholder="Website URL" />
+        </div>
+
+        <div>
+          <Label>Shop Homepage Style</Label>
+          <p className="text-xs text-muted-foreground mt-0.5 mb-3">Choose how visitors see your shop when they open it from a product page.</p>
+          <div className="grid gap-3">
+            {SHOP_THEMES.map(theme => (
+              <button
+                key={theme.id}
+                type="button"
+                onClick={() => setShopTheme(theme.id)}
+                className={`text-left surface-1 interactive-card rounded-2xl p-4 border transition-all ${shopTheme === theme.id ? "border-primary shadow-[0_0_22px_rgba(0,217,255,0.14)]" : "border-white/8"}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{theme.name}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{theme.description}</p>
+                  </div>
+                  {shopTheme === theme.id && <CheckCircle2 size={18} className="text-primary flex-shrink-0" />}
+                </div>
+                <div className={`mt-3 h-16 rounded-xl bg-gradient-to-br ${theme.accent} border border-white/8 overflow-hidden`}>
+                  <div className="h-full w-full bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.14),transparent_22%),linear-gradient(135deg,rgba(0,0,0,0.12),rgba(0,0,0,0.45))]" />
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <Label htmlFor="slug">Custom Shop URL Slug</Label>
+          <Input id="slug" value={customSlug} onChange={e => setCustomSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} placeholder="yourshopname" className="mt-1" />
+          <p className="text-xs text-muted-foreground mt-1">Use this for a clean public link like /s/yourshopname.</p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">

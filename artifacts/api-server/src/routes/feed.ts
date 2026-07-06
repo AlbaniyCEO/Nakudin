@@ -20,6 +20,7 @@ router.get("/feed", async (req, res) => {
           id: shopsTable.id,
           businessName: shopsTable.businessName,
           verified: shopsTable.verified,
+          premiumStatus: shopsTable.premiumStatus,
           logoUrl: shopsTable.logoUrl,
           whatsappNumber: shopsTable.whatsappNumber,
           locationCity: shopsTable.locationCity,
@@ -37,7 +38,7 @@ router.get("/feed", async (req, res) => {
           category ? eq(productsTable.category, category) : undefined,
         )
       )
-      .orderBy(desc(productsTable.trendScore), desc(productsTable.createdAt))
+      .orderBy(desc(sql`${productsTable.trendScore} + CASE WHEN ${productsTable.featuredUntil} > NOW() THEN 5 ELSE 0 END - CASE WHEN ${productsTable.stockQuantity} = 0 THEN 0.35 ELSE 0 END`), desc(productsTable.createdAt))
       .limit(limit + 1);
 
     const hasMore = rows.length > limit;
@@ -78,6 +79,7 @@ router.get("/feed", async (req, res) => {
         shopId: shop.id,
         shopName: shop.businessName,
         shopVerified: shop.verified,
+        shopPremium: shop.premiumStatus === "active",
         shopLogoUrl: shop.logoUrl,
         shopWhatsapp: shop.whatsappNumber,
         category: product.category,
@@ -88,16 +90,12 @@ router.get("/feed", async (req, res) => {
         isFollowed: followedShopIds.has(shop.id),
         trendScore: product.trendScore,
         stockQuantity: product.stockQuantity,
+        featuredUntil: product.featuredUntil?.toISOString() || null,
         createdAt: product.createdAt.toISOString(),
       };
     });
 
-    // Sink out-of-stock products to the end (preserve relative trendScore order within each group)
-    const inStock = products.filter(p => p.stockQuantity > 0);
-    const outOfStock = products.filter(p => p.stockQuantity === 0);
-    const sorted = [...inStock, ...outOfStock];
-
-    res.json({ products: sorted, nextCursor: hasMore ? items[items.length - 1].product.id : null });
+    res.json({ products, nextCursor: hasMore ? items[items.length - 1].product.id : null });
   } catch (err) {
     req.log.error({ err }, "Feed error");
     res.status(500).json({ error: "Internal server error" });

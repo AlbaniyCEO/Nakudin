@@ -1,22 +1,35 @@
 {
-  "name": "Nakudin Marketplace",
+  "name": "Nakudin — Curated Modern Goods",
   "short_name": "Nakudin",
-  "description": "Verified online marketplace where every shop works like a social profile",
+  "description": "Curated modern goods from verified Nigerian shops.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0A0A0F",
-  "theme_color": "#00D9FF",
+  "background_color": "#0A0A0A",
+  "theme_color": "#0A0A0A",
   "orientation": "portrait-primary",
   "categories": ["shopping", "business"],
   "icons": [
     {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "src": "/brand/nakudin-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/nakudin-apple-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
-  "screenshots": [],
+  "screenshots": [
+    {
+      "src": "/brand/nakudin-og.png",
+      "sizes": "1200x630",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ],
   "shortcuts": [
     {
       "name": "Explore Shops",

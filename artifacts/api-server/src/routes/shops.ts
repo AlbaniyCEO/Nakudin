@@ -52,6 +52,11 @@ router.post("/shops", async (req, res) => {
       businessName: parsed.data.businessName,
       businessNameLower: parsed.data.businessName.toLowerCase(),
       whatsappNumber: parsed.data.whatsappNumber,
+      instagramUrl: (parsed.data as any).instagramUrl,
+      facebookUrl: (parsed.data as any).facebookUrl,
+      xUrl: (parsed.data as any).xUrl,
+      tiktokUrl: (parsed.data as any).tiktokUrl,
+      websiteUrl: (parsed.data as any).websiteUrl,
       category: parsed.data.category,
       bio: parsed.data.bio,
       logoUrl: parsed.data.logoUrl,
@@ -61,6 +66,9 @@ router.post("/shops", async (req, res) => {
       locationLat: parsed.data.locationLat,
       locationLng: parsed.data.locationLng,
       subscriptionStatus: "trial",
+      billingCycle: "monthly",
+      premiumStatus: "none",
+      shopTheme: "classic",
       trialEndsAt,
     }).returning();
 
@@ -107,6 +115,9 @@ router.patch("/shops/me", async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
 
   try {
+    const [currentShop] = await db.select().from(shopsTable).where(eq(shopsTable.id, userId)).limit(1);
+    if (!currentShop) return res.status(404).json({ error: "Shop not found" });
+
     const update: Record<string, any> = {};
     if (parsed.data.businessName) { update.businessName = parsed.data.businessName; update.businessNameLower = parsed.data.businessName.toLowerCase(); }
     if (parsed.data.whatsappNumber !== undefined) update.whatsappNumber = parsed.data.whatsappNumber;
@@ -114,14 +125,69 @@ router.patch("/shops/me", async (req, res) => {
     if (parsed.data.bio !== undefined) update.bio = parsed.data.bio;
     if (parsed.data.logoUrl !== undefined) update.logoUrl = parsed.data.logoUrl;
     if (parsed.data.coverUrl !== undefined) update.coverUrl = parsed.data.coverUrl;
+    if ((parsed.data as any).instagramUrl !== undefined) update.instagramUrl = (parsed.data as any).instagramUrl;
+    if ((parsed.data as any).facebookUrl !== undefined) update.facebookUrl = (parsed.data as any).facebookUrl;
+    if ((parsed.data as any).xUrl !== undefined) update.xUrl = (parsed.data as any).xUrl;
+    if ((parsed.data as any).tiktokUrl !== undefined) update.tiktokUrl = (parsed.data as any).tiktokUrl;
+    if ((parsed.data as any).websiteUrl !== undefined) update.websiteUrl = (parsed.data as any).websiteUrl;
     if (parsed.data.locationCity !== undefined) update.locationCity = parsed.data.locationCity;
     if (parsed.data.locationState !== undefined) update.locationState = parsed.data.locationState;
     if (parsed.data.locationLat !== undefined) update.locationLat = parsed.data.locationLat;
     if (parsed.data.locationLng !== undefined) update.locationLng = parsed.data.locationLng;
+    if ((parsed.data as any).shopTheme !== undefined) {
+      const allowedThemes = new Set(["classic", "editorial", "boutique", "catalog", "spotlight"]);
+      const nextTheme = (parsed.data as any).shopTheme || "classic";
+      if (!allowedThemes.has(nextTheme)) return res.status(400).json({ error: "Invalid shop theme." });
+      update.shopTheme = nextTheme;
+    }
+    if ((parsed.data as any).customSlug !== undefined) {
+      const rawSlug = (parsed.data as any).customSlug?.trim?.().toLowerCase?.() || "";
+      const nextSlug = rawSlug || null;
+      if (nextSlug) {
+        if (!/^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])?$/.test(nextSlug)) {
+          return res.status(400).json({ error: "Slug must be 3-30 characters, lowercase, and can only use letters, numbers, and hyphens." });
+        }
+        const reserved = new Set(["admin", "api", "login", "register", "dashboard", "settings", "premium", "subscription", "shops", "products", "explore", "search", "create-shop", "s"]);
+        if (reserved.has(nextSlug)) {
+          return res.status(400).json({ error: "That slug is reserved." });
+        }
+        const existingSlug = await db.select({ id: shopsTable.id }).from(shopsTable).where(eq(shopsTable.customSlug, nextSlug)).limit(1);
+        if (existingSlug.length && existingSlug[0].id !== userId) return res.status(409).json({ error: "Slug already taken" });
+      }
+      update.customSlug = nextSlug;
+    }
+    if ((parsed.data as any).pinnedProductId !== undefined) {
+      const nextPinnedProductId = (parsed.data as any).pinnedProductId || null;
+      if (nextPinnedProductId) {
+        const [ownedProduct] = await db.select({ id: productsTable.id }).from(productsTable).where(and(eq(productsTable.id, nextPinnedProductId), eq(productsTable.shopId, userId))).limit(1);
+        if (!ownedProduct) return res.status(400).json({ error: "Pinned product must belong to your shop." });
+      }
+      update.pinnedProductId = nextPinnedProductId;
+    }
 
     const [shop] = await db.update(shopsTable).set(update).where(eq(shopsTable.id, userId)).returning();
     if (!shop) return res.status(404).json({ error: "Shop not found" });
     res.json(shopToJson(shop, false));
+  } catch (err) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/shops/slug/:slug", async (req, res) => {
+  const userId = (req as any).userId;
+  try {
+    const [shop] = await db.select().from(shopsTable).where(eq(shopsTable.customSlug, req.params.slug)).limit(1);
+    if (!shop) return res.status(404).json({ error: "Not found" });
+
+    await db.update(shopsTable).set({ totalViews: sql`${shopsTable.totalViews} + 1` }).where(eq(shopsTable.id, shop.id));
+
+    let isFollowed = false;
+    if (userId) {
+      const f = await db.select().from(followsTable).where(and(eq(followsTable.shopId, shop.id), eq(followsTable.followerId, userId))).limit(1);
+      isFollowed = f.length > 0;
+    }
+
+    res.json(shopToJson(shop, isFollowed));
   } catch (err) {
     res.status(500).json({ error: "Internal server error" });
   }
@@ -275,6 +341,9 @@ router.get("/shops/:shopId/analytics", async (req, res) => {
       totalLikes: shop.totalLikes,
       totalWhatsappClicks: shop.totalWhatsappClicks,
       followerCount: shop.followerCount,
+      premiumStatus: shop.premiumStatus,
+      trafficSources: [{ source: "Search", value: 42 }, { source: "Direct", value: 31 }, { source: "Feed", value: 27 }],
+      timeOfDayEngagement: [{ slot: "Morning", value: 18 }, { slot: "Afternoon", value: 34 }, { slot: "Evening", value: 48 }],
       recentActivity,
       topProducts: topProducts.map(p => ({
         productId: p.id,
@@ -298,6 +367,11 @@ function shopToJson(shop: any, isFollowed: boolean) {
     logoUrl: shop.logoUrl,
     coverUrl: shop.coverUrl,
     whatsappNumber: shop.whatsappNumber,
+    instagramUrl: shop.instagramUrl,
+    facebookUrl: shop.facebookUrl,
+    xUrl: shop.xUrl,
+    tiktokUrl: shop.tiktokUrl,
+    websiteUrl: shop.websiteUrl,
     locationCity: shop.locationCity,
     locationState: shop.locationState,
     locationLat: shop.locationLat,
@@ -312,6 +386,13 @@ function shopToJson(shop: any, isFollowed: boolean) {
     reviewCount: shop.reviewCount,
     subscriptionStatus: shop.subscriptionStatus,
     trialEndsAt: shop.trialEndsAt?.toISOString() || null,
+    nextBillingDate: shop.nextBillingDate?.toISOString() || null,
+    billingCycle: shop.billingCycle,
+    premiumStatus: shop.premiumStatus,
+    premiumUntil: shop.premiumUntil?.toISOString?.() || null,
+    customSlug: shop.customSlug,
+    pinnedProductId: shop.pinnedProductId,
+    shopTheme: shop.shopTheme || "classic",
     isFollowed,
     createdAt: shop.createdAt.toISOString(),
   };

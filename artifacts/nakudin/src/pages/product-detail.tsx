@@ -4,42 +4,23 @@ import { useAuth } from "@/lib/auth-context";
 import {
   useGetProduct, useGetShop, useGetProductComments, useGetRelatedProducts,
   useLikeProduct, useUnlikeProduct, useCreateComment, useLogWhatsappClick,
-  useFollowShop, getGetProductQueryKey, getGetProductCommentsQueryKey,
-} from "@workspace/api-client-react";
+  useFollowShop, useGetStockWatch, useToggleStockWatch,
+  getGetProductQueryKey, getGetProductCommentsQueryKey,
+} from "@/lib/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { ProductCard } from "@/components/ProductCard";
 import { Button } from "@/components/ui/button";
 import { BadgeCheck, Bell, BellOff, ChevronLeft, Heart, MapPin, MessageCircle, Send, Share2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { ShareDialog } from "@/components/ShareDialog";
 import { Link } from "wouter";
-
-const API_BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+import { openShareSheet, copyLink, getWhatsAppShareUrl, getFacebookShareUrl, updateOgMeta } from "@/lib/share";
+import { registerPushNotifications } from "@/lib/push";
 
 function getDeviceId() {
   let id = localStorage.getItem("nakudin_device_id");
   if (!id) { id = crypto.randomUUID(); localStorage.setItem("nakudin_device_id", id); }
   return id;
-}
-
-async function fetchStockWatchStatus(productId: string, token: string): Promise<boolean> {
-  try {
-    const r = await fetch(`${API_BASE}/api/products/${productId}/stock-watch`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!r.ok) return false;
-    return Boolean((await r.json()).watching);
-  } catch { return false; }
-}
-
-async function toggleStockWatch(productId: string, token: string, watching: boolean): Promise<boolean> {
-  try {
-    const r = await fetch(`${API_BASE}/api/products/${productId}/stock-watch`, {
-      method: watching ? "DELETE" : "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!r.ok) return watching;
-    return Boolean((await r.json()).watching);
-  } catch { return watching; }
 }
 
 export default function ProductDetail() {
@@ -51,34 +32,30 @@ export default function ProductDetail() {
   const [imageIdx, setImageIdx] = useState(0);
   const [liked, setLiked] = useState<boolean | null>(null);
   const [comment, setComment] = useState("");
-  const [isFollowed, setIsFollowed] = useState(false);
-  const [watching, setWatching] = useState<boolean | null>(null);
-  const [watchLoading, setWatchLoading] = useState(false);
+  const [followOverride, setFollowOverride] = useState<boolean | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
 
-  const { data: product, isLoading } = useGetProduct(productId, { query: { enabled: !!productId, queryKey: getGetProductQueryKey(productId) } });
+  const { data: product, isLoading } = useGetProduct(productId, { incrementView: true, query: { enabled: !!productId, queryKey: getGetProductQueryKey(productId) } });
   const { data: shop } = useGetShop(product?.shopId ?? "", { query: { enabled: !!product?.shopId } });
   const { data: comments } = useGetProductComments(productId, { query: { enabled: !!productId, queryKey: getGetProductCommentsQueryKey(productId) } });
   const { data: related } = useGetRelatedProducts(productId, { query: { enabled: !!productId } });
+  const { data: stockWatch } = useGetStockWatch(productId, { query: { enabled: !!user && !!productId } });
 
   const likeProduct = useLikeProduct();
   const unlikeProduct = useUnlikeProduct();
   const createComment = useCreateComment();
   const logClick = useLogWhatsappClick();
   const followShop = useFollowShop();
+  const toggleWatch = useToggleStockWatch();
 
   const isLiked = liked !== null ? liked : (product?.isLiked ?? false);
   const isOOS = product?.stockQuantity === 0;
+  const isFollowed = followOverride ?? shop?.isFollowed ?? false;
 
-  // Load watch state once product and user are both available — must be in useEffect, not render body
   useEffect(() => {
-    if (!product || !user || watching !== null) return;
-    let cancelled = false;
-    user.getIdToken()
-      .then(token => fetchStockWatchStatus(productId, token))
-      .then(v => { if (!cancelled) setWatching(v); })
-      .catch(() => { if (!cancelled) setWatching(false); });
-    return () => { cancelled = true; };
-  }, [product?.id, user?.uid, productId]);
+    if (!user) return;
+    registerPushNotifications(() => user.getIdToken()).catch(() => undefined);
+  }, [user?.uid]);
 
   const handleLike = () => {
     if (!user) { navigate("/login"); return; }
@@ -109,37 +86,36 @@ export default function ProductDetail() {
 
   const handleFollow = () => {
     if (!product?.shopId || !user) { navigate("/login"); return; }
-    const next = !isFollowed;
-    setIsFollowed(next);
-    if (next) {
-      followShop.mutate({ shopId: product.shopId }, { onError: () => setIsFollowed(!next) });
-    }
+    const currentlyFollowed = followOverride ?? shop?.isFollowed ?? false;
+    if (currentlyFollowed) return;
+    setFollowOverride(true);
+    followShop.mutate({ shopId: product.shopId }, {
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: ["shop", product.shopId] }),
+      onError: () => setFollowOverride(false),
+    });
   };
 
-  const handleShare = () => {
-    if (navigator.share) navigator.share({ title: product?.title, url: window.location.href });
-    else navigator.clipboard.writeText(window.location.href);
+  const handleShare = async () => {
+    const url = window.location.href;
+    try {
+      await openShareSheet({ title: product?.title || "Nakudin product", text: product?.description || "Check out this product on Nakudin", url });
+    } catch {
+      setShareOpen(true);
+    }
   };
 
   const handleWatch = async () => {
     if (!user) { navigate("/login"); return; }
-    setWatchLoading(true);
-    try {
-      const token = await user.getIdToken();
-      const next = await toggleStockWatch(productId, token, watching ?? false);
-      setWatching(next);
-    } finally {
-      setWatchLoading(false);
-    }
+    await toggleWatch.mutateAsync({ productId, watching: stockWatch?.watching ?? false });
   };
 
   if (isLoading) {
     return (
       <div className="animate-pulse" data-testid="page-product-loading">
-        <div className="aspect-square bg-muted" />
+        <div className="aspect-square surface-2" />
         <div className="p-4 space-y-3">
-          <div className="h-6 w-3/4 bg-muted rounded" />
-          <div className="h-8 w-24 bg-muted rounded" />
+          <div className="h-6 w-3/4 surface-2 rounded" />
+          <div className="h-8 w-24 surface-2 rounded" />
         </div>
       </div>
     );
@@ -148,6 +124,7 @@ export default function ProductDetail() {
   if (!product) return <div className="p-8 text-center text-muted-foreground">Product not found.</div>;
 
   const images = product.images || [];
+  updateOgMeta({ title: `${product.title} • Nakudin`, description: product.description || `₦${(product?.price ?? 0).toLocaleString("en-NG")}`, image: images[0], url: window.location.href });
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} data-testid="page-product-detail">
@@ -157,17 +134,17 @@ export default function ProductDetail() {
         </button>
       </div>
 
-      <div className="relative aspect-square bg-muted overflow-hidden">
+      <div className="relative aspect-square surface-2 overflow-hidden">
         {images.length > 0 ? (
           <img src={images[imageIdx]} alt={product.title} className={`w-full h-full object-cover ${isOOS ? "grayscale-[20%]" : ""}`} />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">No image</div>
         )}
         {isOOS && (
-          <div className="absolute top-3 left-3 bg-black/70 text-white text-xs font-bold px-3 py-1 rounded-full">Sold Out</div>
+          <div className="absolute top-3 left-3 bg-zinc-700/85 text-white text-xs font-bold px-3 py-1 rounded-full">Out of Stock</div>
         )}
         {!isOOS && product.stockQuantity != null && product.stockQuantity <= 3 && (
-          <div className="absolute top-3 left-3 bg-amber-500/90 text-white text-xs font-bold px-3 py-1 rounded-full">Only {product.stockQuantity} left</div>
+          <div className="absolute top-3 left-3 bg-amber-500/90 text-white text-xs font-bold px-3 py-1 rounded-full">Only a few left</div>
         )}
         {images.length > 1 && (
           <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
@@ -179,7 +156,7 @@ export default function ProductDetail() {
       </div>
 
       <div className="px-4 pb-24">
-        <div className="py-4 border-b border-border">
+        <div className="py-4 border-b border-white/8">
           <div className="flex items-start justify-between gap-3">
             <h1 className="text-xl font-bold text-foreground flex-1" data-testid="text-product-title">{product.title}</h1>
             <div className="flex gap-2">
@@ -209,8 +186,8 @@ export default function ProductDetail() {
 
         {shop && (
           <Link href={`/shops/${shop.id}`}>
-            <div className="flex items-center gap-3 py-4 border-b border-border group">
-              <div className="w-10 h-10 rounded-xl bg-muted overflow-hidden flex-shrink-0">
+            <div className="flex items-center gap-3 py-4 border-b border-white/8 group">
+              <div className="w-10 h-10 rounded-xl surface-2 overflow-hidden flex-shrink-0">
                 {shop.logoUrl ? (
                   <img src={shop.logoUrl} alt={shop.businessName} className="w-full h-full object-cover" />
                 ) : (
@@ -232,24 +209,24 @@ export default function ProductDetail() {
         )}
 
         {product.description && (
-          <div className="py-4 border-b border-border">
+          <div className="py-4 border-b border-white/8">
             <h3 className="text-sm font-semibold text-foreground mb-2">Description</h3>
             <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{product.description}</p>
           </div>
         )}
 
-        <div className="py-4 border-b border-border space-y-2">
-          {!isOOS && shop?.whatsappNumber && (
+        <div className="py-4 border-b border-white/8 space-y-2">
+          {shop?.whatsappNumber && (
             <Button className="w-full bg-[#25D366] hover:bg-[#1ebe5a] text-white font-semibold" onClick={handleWhatsApp} data-testid="button-whatsapp">
               Contact on WhatsApp
             </Button>
           )}
           {isOOS && (
             <>
-              <Button variant={watching ? "outline" : "default"} className="w-full" onClick={handleWatch} disabled={watchLoading} data-testid="button-notify">
-                {watching ? <><BellOff size={15} className="mr-2" />Stop Notifications</> : <><Bell size={15} className="mr-2" />Notify me when back in stock</>}
+              <Button variant={stockWatch?.watching ? "outline" : "default"} className="w-full" onClick={handleWatch} disabled={toggleWatch.isPending} data-testid="button-notify">
+                {stockWatch?.watching ? <><BellOff size={15} className="mr-2" />Stop Notifications</> : <><Bell size={15} className="mr-2" />Notify me when back in stock</>}
               </Button>
-              <p className="text-center text-xs text-muted-foreground">This item is currently sold out.</p>
+              <p className="text-center text-xs text-muted-foreground">This item is currently sold out, but you can still contact the shop.</p>
             </>
           )}
         </div>
@@ -261,7 +238,7 @@ export default function ProductDetail() {
           <form onSubmit={handleComment} className="flex gap-2 mb-4">
             <input value={comment} onChange={e => setComment(e.target.value)}
               placeholder={user ? "Add a comment..." : "Sign in to comment"} disabled={!user}
-              className="flex-1 bg-background border border-input rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+              className="flex-1 surface-2 border border-input rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
               data-testid="input-comment" />
             <Button type="submit" size="icon" disabled={!user || !comment.trim() || createComment.isPending} className="flex-shrink-0">
               <Send size={15} />
@@ -275,7 +252,7 @@ export default function ProductDetail() {
                 ) : (
                   <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold flex-shrink-0">{c.authorName[0]}</div>
                 )}
-                <div className="bg-card border border-card-border rounded-xl px-3 py-2 flex-1">
+                <div className="surface-1 rounded-xl px-3 py-2 flex-1">
                   <p className="text-xs font-medium text-foreground">{c.authorName}</p>
                   <p className="text-sm text-foreground mt-0.5">{c.text}</p>
                 </div>
@@ -289,11 +266,12 @@ export default function ProductDetail() {
           <div className="mt-6">
             <h3 className="text-sm font-semibold text-foreground mb-3">More from this shop</h3>
             <div className="grid grid-cols-2 gap-3">
-              {related?.slice(0, 4).map(p => <ProductCard key={p.id} product={p} />)}
+              {related?.slice(0, 4).map(p => <ProductCard key={p.id} product={{ ...p, shopName: shop?.businessName ?? "Shop", shopVerified: shop?.verified ?? false, shopPremium: shop?.premiumStatus === "active", shopLogoUrl: shop?.logoUrl ?? null, shopWhatsapp: shop?.whatsappNumber ?? null, distanceKm: null, isFollowed: false, trendScore: null }} />)}
             </div>
           </div>
         )}
       </div>
+      <ShareDialog open={shareOpen} onOpenChange={setShareOpen} title={product?.title || "Nakudin product"} url={window.location.href} />
     </motion.div>
   );
 }

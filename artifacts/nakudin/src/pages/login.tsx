@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,8 +81,8 @@ export default function Login() {
       </form>
 
       <div className="relative my-6">
-        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border" /></div>
-        <div className="relative flex justify-center text-xs"><span className="bg-background px-2 text-muted-foreground">or</span></div>
+        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
+        <div className="relative flex justify-center text-xs"><span className="bg-[var(--surface-0)] px-2 text-muted-foreground">or</span></div>
       </div>
 
       <Button variant="outline" onClick={handleGoogle} disabled={loading} className="w-full" data-testid="button-google">
@@ -92,6 +92,10 @@ export default function Login() {
       <p className="text-center text-sm text-muted-foreground mt-6">
         New to Nakudin?{" "}
         <a href="/register" className="text-primary font-medium hover:underline">Create account</a>
+      </p>
+      <p className="text-center text-xs text-muted-foreground mt-3">
+        Need help or want to send feedback?{" "}
+        <Link href="/feedback" className="text-primary font-medium hover:underline">Message Admin without signing in</Link>
       </p>
     </div>
   );

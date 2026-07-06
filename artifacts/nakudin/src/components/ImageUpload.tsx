@@ -48,7 +48,7 @@ import { useState, useRef } from "react";
       <div className="space-y-2">
         {label && <p className="text-sm font-medium text-foreground">{label}</p>}
         <div
-          className={`relative border-2 border-dashed border-border rounded-xl overflow-hidden cursor-pointer hover:border-primary/50 transition-colors ${aspect === "wide" ? "aspect-[3/1]" : "aspect-square"} max-w-xs`}
+          className={`relative border-2 border-dashed border-white/10 surface-2 rounded-xl overflow-hidden cursor-pointer hover:border-primary/50 transition-colors ${aspect === "wide" ? "aspect-[3/1]" : "aspect-square"} max-w-xs`}
           onClick={() => inputRef.current?.click()}
           data-testid="image-upload-area"
         >
