@@ -6,11 +6,15 @@
  * OpenAPI spec version: 0.1.0
  */
 import * as zod from "zod";
-
 /**
  * Returns server health status
  * @summary Health check
  */
-export const HealthCheckResponse = zod.object({
-  status: zod.string(),
-});
+export declare const HealthCheckResponse: zod.ZodObject<{
+    status: zod.ZodString;
+}, "strip", zod.ZodTypeAny, {
+    status: string;
+}, {
+    status: string;
+}>;
+//# sourceMappingURL=api.d.ts.map

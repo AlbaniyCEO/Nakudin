@@ -3,8 +3,6 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { authMiddleware } from "./middlewares/auth";
-import { globalErrorHandler } from "./middlewares/error-handler";
 
 const app: Express = express();
 
@@ -28,21 +26,9 @@ app.use(
   }),
 );
 app.use(cors());
-app.use(
-  express.json({ limit: "10mb",
-    verify: (req: any, _res, buf) => {
-      if (typeof req.url === "string" && req.url.includes("/payments/webhook")) {
-        req.rawBody = buf;
-      }
-    },
-  })
-);
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(authMiddleware);
 
 app.use("/api", router);
-
-// Must be last — catches errors thrown/passed from any route handler
-app.use(globalErrorHandler);
 
 export default app;
