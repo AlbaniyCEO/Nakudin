@@ -10,14 +10,22 @@ import { NakudinLogo } from "@/components/NakudinLogo";
 export default function Login() {
   const { signIn, signInGoogle, user } = useAuth();
   const [, navigate] = useLocation();
+
+  // Read ?next= param so we can send the user back where they came from
+  const searchParams = new URLSearchParams(
+    typeof window !== "undefined" ? window.location.search : ""
+  );
+  const nextParam = searchParams.get("next");
+  const redirectTo = nextParam ? `/${nextParam.replace(/^\//, "")}` : "/";
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Auto-redirect when already signed in (handles mobile Google redirect return)
+  // Auto-redirect if already signed in (also handles mobile Google redirect return)
   useEffect(() => {
-    if (user) navigate("/");
+    if (user) navigate(redirectTo);
   }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -25,7 +33,7 @@ export default function Login() {
     setError(""); setLoading(true);
     try {
       await signIn(email, password);
-      navigate("/");
+      navigate(redirectTo);
     } catch (err: any) {
       setError(err.message || "Invalid email or password");
     } finally {
@@ -37,8 +45,9 @@ export default function Login() {
     setError(""); setLoading(true);
     try {
       await signInGoogle();
-      // Desktop popup resolves here; mobile redirect navigates away.
-      navigate("/");
+      // Desktop popup resolves here; mobile redirect navigates away and
+      // the useEffect above handles the redirect on return.
+      navigate(redirectTo);
     } catch (err: any) {
       setError(err.message || "Google sign-in failed");
     } finally {

@@ -63,10 +63,6 @@ export default function Register() {
     finally { setResending(false); }
   };
 
-  const handleContinue = () => {
-    navigate("/create-shop");
-  };
-
   if (step === "verify") {
     return (
       <div className="min-h-[100dvh] flex flex-col justify-center px-6 py-12 text-center" data-testid="page-verify-email">
@@ -85,7 +81,7 @@ export default function Register() {
             </p>
           </div>
           <p className="text-xs text-muted-foreground">Check your spam folder if you don't see it.</p>
-          <Button className="w-full" onClick={handleContinue}>
+          <Button className="w-full" onClick={() => navigate("/create-shop")}>
             <CheckCircle size={16} className="mr-2" /> I've verified — continue
           </Button>
           <Button variant="ghost" className="w-full text-sm" onClick={handleResend} disabled={resending}>

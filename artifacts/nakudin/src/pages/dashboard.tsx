@@ -10,12 +10,15 @@ import { Button } from "@/components/ui/button";
 import {
   Eye, Heart, MessageCircle, Users, Plus, Pencil, Trash2,
   AlertTriangle, Lock, Clock, BarChart2, Package, ShieldCheck, CheckCircle2, Palette, Sparkles, TrendingUp,
+  Send, MessageSquare,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { printCatalog, printStockReport, printMonthlySummary, printFlyer, printReceipt } from "@/lib/printables";
 import { SHOP_THEMES, type ShopTheme } from "@/lib/shop-themes";
 import type { Product } from "@/lib/firestore";
 import { buildPerformanceAnalysis, type PerformanceAnalysisResult } from "@/lib/performance-insights";
+import { useCreateFeedbackMessage } from "@/lib/feedback-hooks";
+import type { FeedbackCategory } from "@/lib/feedback";
 
 function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: number | string; color: string }) {
   return (
@@ -227,6 +230,92 @@ function StockStepper({ productId, stock, disabled }: { productId: string; stock
   );
 }
 
+
+function AdminMessagePanel({ shopName }: { shopName: string }) {
+  const createFeedback = useCreateFeedbackMessage();
+  const [category, setCategory] = useState<FeedbackCategory>("support");
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
+
+  const CATS: Array<{ id: FeedbackCategory; label: string }> = [
+    { id: "support", label: "Support" },
+    { id: "billing", label: "Billing" },
+    { id: "verification", label: "Verification" },
+    { id: "feedback", label: "Feedback" },
+    { id: "bug", label: "Report a bug" },
+    { id: "other", label: "Other" },
+  ];
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (subject.trim().length < 3) { setError("Add a short subject."); return; }
+    if (message.trim().length < 10) { setError("Write a bit more detail."); return; }
+    try {
+      await createFeedback.mutateAsync({ category, subject: subject.trim(), message: message.trim() });
+      setSubject(""); setMessage(""); setCategory("support");
+      setSent(true);
+    } catch (err: any) {
+      setError(err?.message || "Could not send. Try again.");
+    }
+  };
+
+  return (
+    <div className="surface-1 rounded-2xl p-4 mb-5 border border-white/8">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
+          <MessageSquare size={15} className="text-primary" />
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">Message Admin</h2>
+          <p className="text-xs text-muted-foreground">Need help or have a question? Reach us directly.</p>
+        </div>
+      </div>
+      {sent ? (
+        <div className="py-4 text-center space-y-2">
+          <CheckCircle2 size={28} className="text-green-400 mx-auto" />
+          <p className="text-sm font-semibold text-foreground">Message sent!</p>
+          <p className="text-xs text-muted-foreground">We'll respond within 24 hours.</p>
+          <Button size="sm" variant="outline" onClick={() => setSent(false)}>Send another</Button>
+        </div>
+      ) : (
+        <form onSubmit={handleSend} className="space-y-2">
+          <select
+            value={category}
+            onChange={e => setCategory(e.target.value as FeedbackCategory)}
+            className="surface-2 border border-input rounded-xl px-3 py-2 text-sm w-full outline-none"
+          >
+            {CATS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+          </select>
+          <input
+            className="surface-2 border border-input rounded-xl px-3 py-2 text-sm w-full outline-none"
+            placeholder="Subject"
+            value={subject}
+            onChange={e => setSubject(e.target.value)}
+            maxLength={140}
+          />
+          <textarea
+            className="surface-2 border border-input rounded-xl px-3 py-2 text-sm w-full outline-none resize-none"
+            placeholder="Describe your question or issue…"
+            rows={4}
+            value={message}
+            onChange={e => setMessage(e.target.value)}
+            maxLength={3000}
+          />
+          {error && <p className="text-destructive text-xs">{error}</p>}
+          <Button type="submit" size="sm" className="w-full" disabled={createFeedback.isPending}>
+            {createFeedback.isPending
+              ? <><Loader2 size={13} className="animate-spin mr-1.5" />Sending…</>
+              : <><Send size={13} className="mr-1.5" />Send to Admin</>}
+          </Button>
+        </form>
+      )}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
@@ -401,10 +490,12 @@ export default function Dashboard() {
         <Button variant="outline" onClick={() => printReceipt(printableShop, printableProducts)}>Generate Receipt</Button>
         <Button variant="outline" onClick={() => printMonthlySummary(printableShop, analytics, printableProducts, new Date().toLocaleString("en-NG", { month: "long", year: "numeric" }))}>Print Monthly Summary</Button>
         <Button variant="outline" onClick={() => printFlyer(printableShop)}>Download Shop Flyer</Button>
-        <Button variant="outline" onClick={() => navigate("/feedback")}>Message Admin</Button>
+
       </div>
 
 
+
+      <AdminMessagePanel shopName={shop.businessName} />
 
       <div className="surface-1 rounded-2xl p-4 mb-5">
         <h2 className="text-sm font-semibold text-foreground">Connect social handles</h2>

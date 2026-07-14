@@ -29,7 +29,9 @@ export default function Home() {
         <div className="flex items-center justify-between mb-4 gap-3">
           <div>
             <h1 className="text-lg font-bold text-foreground">{t("forYou")}</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">Browse products and contact sellers directly.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Real products from verified Nigerian shops — contact sellers instantly.
+            </p>
           </div>
           <div className="shrink-0 flex items-center gap-2">
             <Link href="/about" className="hidden xs:inline-flex rounded-full surface-2 border border-white/8 px-3 py-2 text-[11px] text-muted-foreground hover:text-primary hover:border-primary/40 transition-all">About</Link>
