@@ -1,77 +1,92 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-  import {
-    onAuthStateChanged, signInWithEmailAndPassword,
-    createUserWithEmailAndPassword, signInWithPopup, signInWithRedirect,
-    GoogleAuthProvider, signOut, sendEmailVerification, type User,
-  } from 'firebase/auth';
-  import { auth } from './firebase';
-  import { setAuthTokenGetter } from '@workspace/api-client-react';
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  GoogleAuthProvider,
+  signOut,
+  sendEmailVerification,
+  type User,
+} from 'firebase/auth';
+import { auth } from './firebase';
+import { setAuthTokenGetter } from '@workspace/api-client-react';
 
-  const googleProvider = new GoogleAuthProvider();
+const googleProvider = new GoogleAuthProvider();
 
-  interface AuthContextType {
-    user: User | null;
-    loading: boolean;
-    signIn: (email: string, password: string) => Promise<void>;
-    signUp: (email: string, password: string) => Promise<void>;
-    signInGoogle: () => Promise<void>;
-    logout: () => Promise<void>;
-    sendVerificationEmail: () => Promise<void>;
-  }
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
+  signInGoogle: () => Promise<void>;
+  logout: () => Promise<void>;
+  sendVerificationEmail: () => Promise<void>;
+}
 
-  const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-  export function AuthProvider({ children }: { children: ReactNode }) {
-    const [user, setUser] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-      setAuthTokenGetter(() => auth.currentUser?.getIdToken() ?? null);
-      const unsub = onAuthStateChanged(auth, (u) => { setUser(u); setLoading(false); });
-      return () => {
-        unsub();
-        setAuthTokenGetter(null);
-      };
-    }, []);
+  useEffect(() => {
+    setAuthTokenGetter(() => auth.currentUser?.getIdToken() ?? null);
 
-    const signIn = async (email: string, password: string) => {
-      await signInWithEmailAndPassword(auth, email, password);
+    // Handle the result from signInWithRedirect (used for mobile Google sign-in).
+    // Must be called on every page load after a redirect; onAuthStateChanged fires once it resolves.
+    getRedirectResult(auth).catch(() => {
+      // Errors are non-fatal; onAuthStateChanged will reflect the final auth state.
+    });
+
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setLoading(false);
+    });
+    return () => {
+      unsub();
+      setAuthTokenGetter(null);
     };
+  }, []);
 
-    const signUp = async (email: string, password: string) => {
-      const cred = await createUserWithEmailAndPassword(auth, email, password);
-      // Send verification email immediately after signup
-      try { await sendEmailVerification(cred.user); } catch { /* non-blocking */ }
-    };
+  const signIn = async (email: string, password: string) => {
+    await signInWithEmailAndPassword(auth, email, password);
+  };
 
-    const signInGoogle = async () => {
-      // Use redirect on mobile for better compatibility; popup on desktop
-      const isMobile = /Mobi|Android/i.test(navigator.userAgent);
-      if (isMobile) {
-        await signInWithRedirect(auth, googleProvider);
-      } else {
-        await signInWithPopup(auth, googleProvider);
-      }
-    };
+  const signUp = async (email: string, password: string) => {
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    try { await sendEmailVerification(cred.user); } catch { /* non-blocking */ }
+  };
 
-    const logout = async () => { await signOut(auth); };
+  const signInGoogle = async () => {
+    // Use redirect on mobile for better compatibility; popup on desktop.
+    const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+      await signInWithRedirect(auth, googleProvider);
+    } else {
+      await signInWithPopup(auth, googleProvider);
+    }
+  };
 
-    const sendVerificationEmail = async () => {
-      if (auth.currentUser) await sendEmailVerification(auth.currentUser);
-    };
+  const logout = async () => { await signOut(auth); };
 
-    return (
-      <AuthContext.Provider value={{ user, loading, signIn, signUp, signInGoogle, logout, sendVerificationEmail }}>
-        {children}
-      </AuthContext.Provider>
-    );
-  }
+  const sendVerificationEmail = async () => {
+    if (auth.currentUser) await sendEmailVerification(auth.currentUser);
+  };
 
-  export function useAuth() {
-    const ctx = useContext(AuthContext);
-    if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-    return ctx;
-  }
+  return (
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signInGoogle, logout, sendVerificationEmail }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
 
-  export { auth };
-  
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
+}
+
+export { auth };

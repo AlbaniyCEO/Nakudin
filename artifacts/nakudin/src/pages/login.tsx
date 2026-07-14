@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
@@ -8,12 +8,17 @@ import { Loader2 } from "lucide-react";
 import { NakudinLogo } from "@/components/NakudinLogo";
 
 export default function Login() {
-  const { signIn, signInGoogle } = useAuth();
+  const { signIn, signInGoogle, user } = useAuth();
   const [, navigate] = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Auto-redirect when already signed in (handles mobile Google redirect return)
+  useEffect(() => {
+    if (user) navigate("/");
+  }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +37,7 @@ export default function Login() {
     setError(""); setLoading(true);
     try {
       await signInGoogle();
+      // Desktop popup resolves here; mobile redirect navigates away.
       navigate("/");
     } catch (err: any) {
       setError(err.message || "Google sign-in failed");
