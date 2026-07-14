@@ -10,6 +10,7 @@ import { OfflineBanner } from "@/components/OfflineBanner";
 import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
 
 import NotFound from "@/pages/not-found";
+import { AUTH_REDIRECT_KEY } from "@/pages/login";
 import Home from "@/pages/home";
 import Explore from "@/pages/explore";
 import Shops from "@/pages/shops";
@@ -43,12 +44,37 @@ const queryClient = new QueryClient({
 
 const NO_NAV_PATHS = ["/login", "/register", "/create-shop"];
 
+/**
+ * Handles the post-authentication redirect for mobile Google sign-in.
+ * When signInWithRedirect() is used, Firebase returns the user to the app ROOT
+ * (not to /login?next=...), so the Login page's useEffect never fires.
+ * This component sits at the top of the router, reads the stored destination
+ * from sessionStorage, and navigates once when the user first becomes authenticated.
+ */
+function PostLoginRedirect() {
+  const { user, loading } = useAuth();
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user) return;
+    const stored = sessionStorage.getItem(AUTH_REDIRECT_KEY);
+    if (stored) {
+      sessionStorage.removeItem(AUTH_REDIRECT_KEY);
+      navigate(stored);
+    }
+  }, [user, loading]);
+
+  return null;
+}
+
 function Layout() {
   const [location] = useLocation();
   const hideNav = NO_NAV_PATHS.includes(location);
 
   return (
     <div className="max-w-screen-sm mx-auto min-h-[100dvh] pb-20 relative bg-transparent before:pointer-events-none before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_top_left,rgba(0,217,255,0.06),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.03),transparent_28%)] before:opacity-100">
+      <PostLoginRedirect />
       <OfflineBanner />
       <PushNotificationPrompt />
       <Switch>
