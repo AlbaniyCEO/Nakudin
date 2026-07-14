@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: admin
+    description: Admin operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,176 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Get admin dashboard stats
+      responses:
+        "200":
+          description: Admin stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+  /admin/shops:
+    get:
+      operationId: adminListShops
+      tags: [admin]
+      summary: List all shops (admin)
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: premium
+          in: query
+          schema:
+            type: string
+        - name: q
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of shops
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  shops:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AdminShop"
+                  nextCursor:
+                    type: string
+                    nullable: true
+                required:
+                  - shops
+
+  /admin/shops/{shopId}:
+    patch:
+      operationId: adminUpdateShop
+      tags: [admin]
+      summary: Update a shop (admin)
+      parameters:
+        - name: shopId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUpdateShopBody"
+      responses:
+        "200":
+          description: Updated shop
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminShop"
+    delete:
+      operationId: adminDeleteShop
+      tags: [admin]
+      summary: Suspend a shop (admin)
+      parameters:
+        - name: shopId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Shop suspended
+
+  /admin/products:
+    get:
+      operationId: adminListProducts
+      tags: [admin]
+      summary: List all products (admin)
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: q
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  products:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AdminProduct"
+                  nextCursor:
+                    type: string
+                    nullable: true
+                required:
+                  - products
+
+  /admin/reports:
+    get:
+      operationId: adminListReports
+      tags: [admin]
+      summary: List reports (admin)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, reviewed, dismissed]
+      responses:
+        "200":
+          description: List of reports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Report"
+
+  /admin/reports/{reportId}:
+    patch:
+      operationId: adminUpdateReport
+      tags: [admin]
+      summary: Update a report status (admin)
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUpdateReportBody"
+      responses:
+        "200":
+          description: Updated report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Report"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +206,248 @@ components:
       required:
         - status
 
+    AdminStats:
+      type: object
+      properties:
+        totalShops:
+          type: integer
+        totalProducts:
+          type: integer
+        totalUsers:
+          type: integer
+        totalReports:
+          type: integer
+        revenueThisMonth:
+          type: number
+        whatsappClicksToday:
+          type: integer
+        newSignupsThisWeek:
+          type: integer
+        subscriptionBreakdown:
+          type: object
+          properties:
+            trial:
+              type: integer
+            active:
+              type: integer
+            grace:
+              type: integer
+            locked:
+              type: integer
+        billingBreakdown:
+          type: object
+          properties:
+            monthly:
+              type: integer
+            yearly:
+              type: integer
+            premium:
+              type: integer
+            monthlyRevenue:
+              type: number
+            yearlyRevenue:
+              type: number
+            premiumRevenue:
+              type: number
+      required:
+        - totalShops
+        - totalProducts
+        - totalUsers
+        - totalReports
+
+    AdminShop:
+      type: object
+      properties:
+        id:
+          type: string
+        businessName:
+          type: string
+        bio:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        logoUrl:
+          type: string
+          nullable: true
+        coverUrl:
+          type: string
+          nullable: true
+        whatsappNumber:
+          type: string
+        locationCity:
+          type: string
+          nullable: true
+        locationState:
+          type: string
+          nullable: true
+        locationLat:
+          type: number
+          nullable: true
+        locationLng:
+          type: number
+          nullable: true
+        verified:
+          type: boolean
+        followerCount:
+          type: integer
+        followingCount:
+          type: integer
+        totalViews:
+          type: integer
+        totalLikes:
+          type: integer
+        totalWhatsappClicks:
+          type: integer
+        avgRating:
+          type: number
+          nullable: true
+        reviewCount:
+          type: integer
+        subscriptionStatus:
+          type: string
+        billingCycle:
+          type: string
+          nullable: true
+        premiumStatus:
+          type: string
+        trialEndsAt:
+          type: string
+          nullable: true
+        nextBillingDate:
+          type: string
+          nullable: true
+        premiumUntil:
+          type: string
+          nullable: true
+        customSlug:
+          type: string
+          nullable: true
+        pinnedProductId:
+          type: string
+          nullable: true
+        shopTheme:
+          type: string
+        isFollowed:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - businessName
+        - whatsappNumber
+        - verified
+        - subscriptionStatus
+        - premiumStatus
+        - createdAt
+
+    AdminUpdateShopBody:
+      type: object
+      properties:
+        verified:
+          type: boolean
+        subscriptionStatus:
+          type: string
+        suspended:
+          type: boolean
+
+    AdminProduct:
+      type: object
+      properties:
+        id:
+          type: string
+        shopId:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        price:
+          type: number
+          nullable: true
+        images:
+          type: array
+          items:
+            type: string
+        category:
+          type: string
+          nullable: true
+        locationCity:
+          type: string
+          nullable: true
+        locationState:
+          type: string
+          nullable: true
+        locationLat:
+          type: number
+          nullable: true
+        locationLng:
+          type: number
+          nullable: true
+        likeCount:
+          type: integer
+        viewCount:
+          type: integer
+        whatsappClickCount:
+          type: integer
+        trendScore:
+          type: number
+          nullable: true
+        stockQuantity:
+          type: integer
+          nullable: true
+        featuredUntil:
+          type: string
+          nullable: true
+        status:
+          type: string
+        isLiked:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - shopId
+        - title
+        - status
+        - createdAt
+
+    Report:
+      type: object
+      properties:
+        id:
+          type: string
+        targetType:
+          type: string
+        targetId:
+          type: string
+        reporterUid:
+          type: string
+          nullable: true
+        reason:
+          type: string
+        details:
+          type: string
+          nullable: true
+        status:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - targetType
+        - targetId
+        - reason
+        - status
+        - createdAt
+
+    AdminUpdateReportBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [reviewed, dismissed]
+      required:
+        - status
